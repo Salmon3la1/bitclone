@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bitclone USB Creator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">▦</span> bitclone <span class="muted">USB Creator</span></div>
+  <span id="ver" class="muted small"></span>
+</header>
+<main>
+  <p class="lead">Makes a bootable bitclone USB stick. Boot any PC from it to back up or restore its disks.</p>
+
+  <section class="step">
+    <h2><span class="num">1</span>Boot image</h2>
+    <div id="iso"></div>
+    <div class="row wrap" style="margin-top:12px">
+      <button id="btn-download" class="hidden">⬇ Download latest</button>
+      <button id="btn-browse">Choose ISO file…</button>
+      <select id="iso-list" class="hidden grow"></select>
+    </div>
+  </section>
+
+  <section class="step">
+    <h2><span class="num">2</span>USB stick <button id="btn-refresh" class="small" style="margin-left:auto">Refresh</button></h2>
+    <p class="muted small">Only USB and SD-card drives are shown. Internal disks are never listed.</p>
+    <div id="disks" class="cards"></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="num">3</span>Write</h2>
+    <div class="notice danger">Everything on the selected USB stick will be erased.</div>
+    <div class="go"><span id="summary" class="muted small"></span><button id="btn-write" class="primary" disabled>Write USB stick</button></div>
+  </section>
+</main>
+
+<div id="job" class="overlay hidden">
+  <div class="jobcard">
+    <div class="jobhead"><h2 id="job-title"></h2><span id="job-state" class="pill"></span></div>
+    <p id="job-phase" class="muted"></p>
+    <div class="bar"><div id="job-bar"></div></div>
+    <div class="stats">
+      <div><span class="k">Progress</span><span id="job-pct" class="v"></span></div>
+      <div><span class="k">Done</span><span id="job-done" class="v"></span></div>
+      <div><span class="k">Speed</span><span id="job-rate" class="v"></span></div>
+      <div><span class="k" id="job-eta-k">Time left</span><span id="job-eta" class="v"></span></div>
+    </div>
+    <p id="job-error" class="error hidden"></p>
+    <div id="job-done-msg" class="notice info hidden"></div>
+    <details><summary>Details</summary><pre id="job-log"></pre></details>
+    <div class="actions">
+      <button id="job-cancel" class="danger">Cancel</button>
+      <button id="job-close" class="primary hidden">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" class="overlay hidden">
+  <div class="modalcard">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <div class="actions"><button id="modal-no">Cancel</button><button id="modal-yes" class="danger">OK</button></div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

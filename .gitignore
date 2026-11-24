@@ -1,0 +1,15 @@
+/dist/
+/bitclone
+/bitclone.exe
+/live/config/includes.chroot/usr/local/bin/bitclone
+/live/.build/
+/live/cache/
+/live/chroot/
+/live/binary/
+/live/*.iso
+/live/*.log
+/live/config/binary
+/live/config/bootstrap
+/live/config/chroot
+/live/config/common
+/live/config/source

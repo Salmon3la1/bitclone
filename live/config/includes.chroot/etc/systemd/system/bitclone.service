@@ -1,0 +1,11 @@
+[Unit]
+Description=bitclone imaging backend
+After=local-fs.target systemd-udevd.service
+
+[Service]
+ExecStart=/usr/local/bin/bitclone gui --listen 127.0.0.1:8080
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

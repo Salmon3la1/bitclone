@@ -1,0 +1,18 @@
+#!/bin/sh
+# live-build configuration for the bitclone boot USB (Debian 13 "trixie").
+# Produces a hybrid ISO that boots on both UEFI and legacy BIOS machines.
+set -e
+
+lb config noauto \
+  --distribution trixie \
+  --architectures amd64 \
+  --archive-areas "main contrib non-free non-free-firmware" \
+  --binary-images iso-hybrid \
+  --bootloaders "grub-efi,syslinux" \
+  --debian-installer none \
+  --memtest none \
+  --iso-application "bitclone" \
+  --iso-volume "BITCLONE" \
+  --bootappend-live "boot=live components quiet splash hostname=bitclone username=user noautologin nopersistence" \
+  --apt-recommends false \
+  "${@}"

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bitclone</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">▦</span> bitclone</div>
+  <nav id="nav">
+    <button data-view="backup" class="active">Back up</button>
+    <button data-view="restore">Restore</button>
+    <button data-view="verify">Verify</button>
+    <button data-view="disks">Disks</button>
+  </nav>
+  <div class="power">
+    <button id="btn-reboot" class="ghost" title="Restart the computer">Restart</button>
+    <button id="btn-poweroff" class="ghost" title="Shut down the computer">Shut down</button>
+  </div>
+</header>
+<main id="main"></main>
+
+<div id="job" class="overlay hidden">
+  <div class="jobcard">
+    <div class="jobhead">
+      <h2 id="job-title">Working…</h2>
+      <span id="job-state" class="pill">running</span>
+    </div>
+    <p id="job-phase" class="muted"></p>
+    <div class="bar"><div id="job-bar"></div></div>
+    <div class="stats">
+      <div><span class="k">Progress</span><span id="job-pct" class="v">0%</span></div>
+      <div><span class="k">Processed</span><span id="job-done" class="v">–</span></div>
+      <div><span class="k">Speed</span><span id="job-rate" class="v">–</span></div>
+      <div><span class="k">Time left</span><span id="job-eta" class="v">–</span></div>
+    </div>
+    <p id="job-error" class="error hidden"></p>
+    <details open><summary>Log</summary><pre id="job-log"></pre></details>
+    <div class="actions">
+      <button id="job-cancel" class="danger">Cancel</button>
+      <button id="job-close" class="primary hidden">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal" class="overlay hidden">
+  <div class="modalcard">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <div class="actions">
+      <button id="modal-no" class="ghost">Cancel</button>
+      <button id="modal-yes" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

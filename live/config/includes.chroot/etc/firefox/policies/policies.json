@@ -1,0 +1,19 @@
+{
+  "policies": {
+    "DisableAppUpdate": true,
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableProfileImport": true,
+    "DisableSetDesktopBackground": true,
+    "DontCheckDefaultBrowser": true,
+    "NoDefaultBookmarks": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "UserMessaging": { "WhatsNew": false, "ExtensionRecommendations": false, "FeatureRecommendations": false, "SkipOnboarding": true },
+    "Homepage": { "URL": "http://127.0.0.1:8080/", "Locked": true, "StartPage": "homepage" },
+    "WebsiteFilter": { "Block": ["<all_urls>"], "Exceptions": ["http://127.0.0.1/*", "http://127.0.0.1:8080/*"] },
+    "DisableDeveloperTools": true,
+    "PasswordManagerEnabled": false
+  }
+}

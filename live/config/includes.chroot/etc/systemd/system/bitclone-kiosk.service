@@ -1,0 +1,26 @@
+[Unit]
+Description=bitclone full-screen interface (cage + Firefox kiosk)
+After=systemd-user-sessions.service bitclone.service live-config.service plymouth-quit-wait.service
+Wants=bitclone.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=user
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+Environment=XDG_SESSION_TYPE=wayland MOZ_ENABLE_WAYLAND=1 WLR_RENDERER_ALLOW_SOFTWARE=1 WLR_NO_HARDWARE_CURSORS=1
+ExecStartPre=/usr/local/bin/bitclone ping -timeout 30s
+ExecStart=/usr/bin/cage -s -d -- /usr/bin/firefox-esr --kiosk --private-window http://127.0.0.1:8080/
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical.target

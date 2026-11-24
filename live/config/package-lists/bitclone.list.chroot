@@ -1,0 +1,32 @@
+# Live system basics
+live-boot
+live-config
+live-config-systemd
+systemd-sysv
+libpam-systemd
+dbus
+udev
+
+# Kiosk GUI: cage (Wayland kiosk compositor) + Firefox
+cage
+firefox-esr
+libgl1-mesa-dri
+libegl1
+fonts-dejavu-core
+xkb-data
+
+# Disk and filesystem tools (mounting destinations, diagnostics, CLI use)
+util-linux
+ntfs-3g
+dosfstools
+exfatprogs
+e2fsprogs
+parted
+gdisk
+smartmontools
+hdparm
+nvme-cli
+
+# Common storage / NIC firmware so disks on more controllers are visible
+firmware-linux-free
+firmware-misc-nonfree
