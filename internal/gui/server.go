@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -49,7 +50,13 @@ func Serve(addr string) error {
 	sub, _ := fs.Sub(static, "static")
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"ok": true}) })
-	mux.HandleFunc("/api/system", s.system)
+	// Logged once, when the kiosk browser has loaded the page (the boot test
+	// in CI waits for this line).
+	var connected sync.Once
+	mux.HandleFunc("/api/system", func(w http.ResponseWriter, r *http.Request) {
+		connected.Do(func() { log.Printf("interface connected (%s)", r.UserAgent()) })
+		s.system(w, r)
+	})
 	mux.HandleFunc("/api/disks", s.disks)
 	mux.HandleFunc("/api/analyze", s.analyze)
 	mux.HandleFunc("/api/browse", s.browse)

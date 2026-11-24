@@ -1,0 +1,62 @@
+#!/bin/sh
+# Starts the ImaGen full-screen interface (cage + Firefox) on tty1.
+# If it keeps failing, shows a text screen with the reason instead of
+# leaving a blank console.
+
+URL=http://127.0.0.1:8080/
+LOG=/tmp/imagen-kiosk.log
+TTY=/dev/tty1
+
+# Software rendering by default: works with any display the kernel can
+# drive, without depending on GPU drivers or firmware.
+export WLR_RENDERER="${WLR_RENDERER:-pixman}"
+export WLR_NO_HARDWARE_CURSORS=1
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+
+fallback() {
+	{
+		printf '\033c'
+		echo
+		echo "  ImaGen: the graphical interface could not start."
+		echo
+		echo "  What you can do:"
+		echo "    * Restart the PC (hold the power button), boot from the USB stick"
+		echo "      again and choose the \"fail-safe mode\" entry in the boot menu."
+		echo "    * Take a photo of this screen and send it to the developer."
+		echo
+		echo "  Last messages:"
+		echo "  --------------------------------------------------------------------"
+		tail -n 15 "$LOG" 2>/dev/null | cut -c1-100 | sed 's/^/  /'
+		ls /dev/dri 2>/dev/null | tr '\n' ' ' | sed 's/^/  Display devices: /'
+		echo
+		echo "  --------------------------------------------------------------------"
+		echo
+		echo "  Press Enter to try again, or type  shell  for a command line."
+	} >"$TTY" 2>&1
+	read -r answer <"$TTY"
+	if [ "$answer" = shell ]; then
+		echo "  Type  exit  to return. The imagen command is available here." >"$TTY"
+		/bin/bash -l <"$TTY" >"$TTY" 2>&1
+	fi
+}
+
+failures=0
+while :; do
+	echo "--- $(date '+%H:%M:%S') starting interface (renderer: $WLR_RENDERER)" >>"$LOG"
+	started=$(date +%s)
+	/usr/bin/cage -s -d -- /usr/bin/firefox-esr --kiosk --private-window "$URL" >>"$LOG" 2>&1
+	status=$?
+	echo "--- interface exited with status $status" >>"$LOG"
+	tail -n 20 "$LOG" >&2 # also into the journal
+	if [ $(($(date +%s) - started)) -gt 60 ]; then
+		failures=0
+	else
+		failures=$((failures + 1))
+	fi
+	if [ "$failures" -ge 3 ]; then
+		fallback
+		failures=0
+	fi
+	sleep 1
+done

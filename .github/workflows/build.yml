@@ -63,6 +63,26 @@ jobs:
           sudo chown -R "$USER" dist
           mv dist/imagen-*-amd64.iso dist/imagen-amd64.iso
           (cd dist && sha256sum imagen-amd64.iso > imagen-amd64.iso.sha256)
+      - name: Boot test (QEMU)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 xorriso socat netpbm
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+          sh scripts/boot-test.sh dist/imagen-amd64.iso
+      - name: Boot test screenshot
+        if: always()
+        run: |
+          [ -f dist/boot-test/screen.ppm ] && pnmtopng dist/boot-test/screen.ppm > dist/boot-test/screen.png || true
+          mkdir -p boot-test && cp dist/boot-test/serial.log dist/boot-test/screen.png dist/boot-test/grub.cfg boot-test/ 2>/dev/null || true
+          rm -rf dist/boot-test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: boot-test
+          path: boot-test/
       - uses: actions/upload-artifact@v4
         with:
           name: imagen-iso

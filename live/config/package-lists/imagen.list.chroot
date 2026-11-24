@@ -12,6 +12,9 @@ cage
 firefox-esr
 libgl1-mesa-dri
 libegl1
+libegl-mesa0
+libgles2
+libgbm1
 fonts-dejavu-core
 xkb-data
 
@@ -30,3 +33,8 @@ nvme-cli
 # Common storage / NIC firmware so disks on more controllers are visible
 firmware-linux-free
 firmware-misc-nonfree
+
+# Graphics firmware (Debian 13 ships these separately). Without it, newer
+# Intel and AMD GPUs cannot drive the screen once their driver loads.
+firmware-intel-graphics
+firmware-amd-graphics
