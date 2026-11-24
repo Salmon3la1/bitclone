@@ -19,6 +19,7 @@ xorriso -osirrox on -indev "$ISO" -extract /boot/grub "$OUT/grub" >/dev/null 2>&
 grep -rhE "menuentry|^\s*linux" "$OUT/grub" 2>/dev/null | sort -u | sed 's/^/   /' || true
 
 xorriso -osirrox on -indev "$ISO" -extract /live/vmlinuz "$OUT/vmlinuz" -extract /live/initrd.img "$OUT/initrd.img" >/dev/null
+chmod -R u+w "$OUT"
 APPEND="boot=live components loglevel=3 hostname=imagen username=user noautologin nopersistence console=ttyS0,115200 systemd.journald.forward_to_console=1"
 
 ACCEL=""
@@ -36,6 +37,7 @@ ok=0
 i=0
 while [ $i -lt "$TIMEOUT" ]; do
 	if grep -q "interface connected" "$OUT/serial.log" 2>/dev/null; then ok=1; break; fi
+	if grep -q "restart counter is at 20" "$OUT/serial.log" 2>/dev/null; then echo "kiosk keeps failing"; break; fi
 	if ! kill -0 $QEMU 2>/dev/null; then echo "QEMU exited"; break; fi
 	sleep 5; i=$((i + 5))
 done

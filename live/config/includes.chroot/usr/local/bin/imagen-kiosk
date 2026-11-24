@@ -22,7 +22,7 @@ fallback() {
 		echo
 		echo "  What you can do:"
 		echo "    * Restart the PC (hold the power button), boot from the USB stick"
-		echo "      again and choose the \"fail-safe mode\" entry in the boot menu."
+		echo "      again and choose \"Live system (amd64 fail-safe mode)\" in the boot menu."
 		echo "    * Take a photo of this screen and send it to the developer."
 		echo
 		echo "  Last messages:"

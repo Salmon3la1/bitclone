@@ -77,7 +77,7 @@ jobs:
         run: |
           [ -f dist/boot-test/screen.ppm ] && pnmtopng dist/boot-test/screen.ppm > dist/boot-test/screen.png || true
           mkdir -p boot-test && cp dist/boot-test/serial.log dist/boot-test/screen.png dist/boot-test/grub.cfg boot-test/ 2>/dev/null || true
-          rm -rf dist/boot-test
+          chmod -R u+w dist/boot-test 2>/dev/null; rm -rf dist/boot-test
       - uses: actions/upload-artifact@v4
         if: always()
         with:

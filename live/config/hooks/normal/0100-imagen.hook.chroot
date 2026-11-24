@@ -2,6 +2,17 @@
 # Runs inside the live system chroot during the build.
 set -e
 chmod 0755 /usr/local/bin/imagen /usr/local/bin/imagen-kiosk
+# The account the kiosk runs as. Created here, not by live-config at boot:
+# that needs the user-setup package, which a no-recommends build leaves out.
+if ! id user >/dev/null 2>&1; then
+	useradd --create-home --shell /bin/bash --comment "ImaGen" user
+fi
+for g in video render input audio; do
+	getent group "$g" >/dev/null && usermod -aG "$g" user
+done
+passwd -d user # no password: the text console on Ctrl+Alt+F2 logs straight in
+echo 'user ALL=(ALL) NOPASSWD: ALL' >/etc/sudoers.d/imagen
+chmod 0440 /etc/sudoers.d/imagen
 systemctl enable imagen.service
 systemctl enable imagen-kiosk.service
 systemctl set-default graphical.target

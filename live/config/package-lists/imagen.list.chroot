@@ -38,3 +38,6 @@ firmware-misc-nonfree
 # Intel and AMD GPUs cannot drive the screen once their driver loads.
 firmware-intel-graphics
 firmware-amd-graphics
+
+# Command line on the text console (imagen needs root for raw disks)
+sudo
