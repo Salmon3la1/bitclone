@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"bitclone/internal/extent"
-	"bitclone/internal/testdisk"
+	"imagen/internal/extent"
+	"imagen/internal/testdisk"
 )
 
 func check(t *testing.T, name string, p []byte, want []extent.Extent) *Result {

@@ -1,6 +1,6 @@
 //go:build windows
 
-// Command bitclone-usb creates a bitclone boot USB stick on Windows.
+// Command imagen-usb creates an ImaGen boot USB stick on Windows.
 //
 // Double-click it: it asks for administrator rights (needed to write raw
 // disks), then opens its window. It can download the latest boot image from
@@ -33,7 +33,7 @@ func main() {
 	token := flag.String("token", "", "")
 	flag.Parse()
 
-	if lf, err := os.OpenFile(filepath.Join(cacheDir(), "bitclone-usb.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
+	if lf, err := os.OpenFile(filepath.Join(cacheDir(), "imagen-usb.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 		log.SetOutput(lf)
 	}
 
@@ -47,7 +47,7 @@ func main() {
 	tok := randomToken()
 	p, err := freePort()
 	if err != nil {
-		messageBox("bitclone USB", "Could not start: "+err.Error())
+		messageBox("ImaGen USB", "Could not start: "+err.Error())
 		return
 	}
 	url := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", p, tok)
@@ -59,17 +59,17 @@ func main() {
 			}
 		}()
 		if err := runServer(p, tok, true); err != nil {
-			messageBox("bitclone USB", "Could not start: "+err.Error())
+			messageBox("ImaGen USB", "Could not start: "+err.Error())
 		}
 		return
 	}
 	exe, _ := os.Executable()
 	if err := runElevated(exe, fmt.Sprintf("-serve -port %d -token %s", p, tok)); err != nil {
-		messageBox("bitclone USB", "Writing a USB stick needs administrator rights.\n\n"+err.Error())
+		messageBox("ImaGen USB", "Writing a USB stick needs administrator rights.\n\n"+err.Error())
 		return
 	}
 	if !waitReady(p, 60*time.Second) {
-		messageBox("bitclone USB", "The program did not start. See "+filepath.Join(cacheDir(), "bitclone-usb.log"))
+		messageBox("ImaGen USB", "The program did not start. See "+filepath.Join(cacheDir(), "imagen-usb.log"))
 		return
 	}
 	openBrowser(url)

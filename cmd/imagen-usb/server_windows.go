@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"bitclone/internal/engine"
+	"imagen/internal/engine"
 )
 
 //go:embed static
@@ -66,7 +66,7 @@ func runServer(port int, token string, _ bool) error {
 	mux.HandleFunc("/api/quit", s.auth(s.quit))
 	go s.watchdog()
 	srv := &http.Server{Addr: s.host, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	log.Printf("bitclone-usb %s listening on %s", version, s.host)
+	log.Printf("imagen-usb %s listening on %s", version, s.host)
 	return srv.ListenAndServe()
 }
 
@@ -171,7 +171,7 @@ func (s *usbServer) selectISO(w http.ResponseWriter, r *http.Request) {
 func (s *usbServer) browseISO(w http.ResponseWriter, r *http.Request) {
 	out, err := powershell(`Add-Type -AssemblyName System.Windows.Forms
 $f = New-Object System.Windows.Forms.OpenFileDialog
-$f.Title = 'Choose the bitclone boot image'
+$f.Title = 'Choose the ImaGen boot image'
 $f.Filter = 'Boot images (*.iso;*.img)|*.iso;*.img|All files (*.*)|*.*'
 $o = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }
 if ($f.ShowDialog($o) -eq 'OK') { $f.FileName }`)
@@ -226,7 +226,7 @@ func (s *usbServer) download(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, errors.New("this build has no download location; choose an ISO file instead"))
 		return
 	}
-	url := "https://github.com/" + releaseRepo + "/releases/latest/download/bitclone-amd64.iso"
+	url := "https://github.com/" + releaseRepo + "/releases/latest/download/imagen-amd64.iso"
 	s.start(w, "download", "Downloading the latest boot image", func(ctx context.Context, p *engine.Progress) error {
 		path, err := downloadISO(ctx, url, p)
 		if err != nil {

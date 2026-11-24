@@ -11,7 +11,7 @@ import (
 	"syscall"
 )
 
-// USBDisk is a disk bitclone-usb may write to.
+// USBDisk is a disk imagen-usb may write to.
 type USBDisk struct {
 	Number   int      `json:"number"`
 	Model    string   `json:"model"`

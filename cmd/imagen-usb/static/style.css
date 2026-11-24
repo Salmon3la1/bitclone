@@ -18,7 +18,7 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 .muted { color: var(--muted); } .small { font-size: 13px; } .hidden { display: none !important; }
 .error { color: var(--bad); } .mono { font-family: Consolas, monospace; }
 .top { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.brand { font-weight: 700; font-size: 19px; } .brand .muted { font-weight: 400; } .logo { color: var(--accent); }
+.brand { font-weight: 700; font-size: 19px; } .brand .muted { font-weight: 400; } .logo { width: 26px; height: 26px; vertical-align: -6px; margin-right: 4px; }
 main { max-width: 900px; margin: 0 auto; padding: 18px 24px 30px; }
 .lead { color: var(--muted); margin: 0 0 16px; }
 .step { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; }

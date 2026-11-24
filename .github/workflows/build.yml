@@ -2,9 +2,9 @@ name: build
 
 # Every push: tests + Windows USB creator + ISO as downloadable build artifacts.
 # Pushing a tag like v0.1.0: also publishes a GitHub Release containing
-#   bitclone-usb.exe          (the Windows USB creator)
-#   bitclone-amd64.iso        (the boot image; the creator downloads this)
-#   bitclone-amd64.iso.sha256
+#   imagen-usb.exe          (the Windows USB creator)
+#   imagen-amd64.iso        (the boot image; the creator downloads this)
+#   imagen-amd64.iso.sha256
 on:
   push:
   workflow_dispatch:
@@ -27,8 +27,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ntfs-3g dosfstools e2fsprogs
-          go build -o bitclone ./cmd/bitclone
-          sudo ./scripts/fs-integration-test.sh ./bitclone
+          go build -o imagen ./cmd/imagen
+          sudo ./scripts/fs-integration-test.sh ./imagen
 
   usb-creator:
     runs-on: windows-latest
@@ -38,18 +38,18 @@ jobs:
         with:
           go-version: "1.22"
           cache: false
-      - run: go test ./cmd/bitclone-usb/
-      - name: Build bitclone-usb.exe
+      - run: go test ./cmd/imagen-usb/
+      - name: Build imagen-usb.exe
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME}"
           [[ "$GITHUB_REF" == refs/tags/* ]] || VERSION="dev-${GITHUB_SHA::7}"
           go build -trimpath -ldflags "-H windowsgui -s -w -X main.releaseRepo=${GITHUB_REPOSITORY} -X main.version=${VERSION}" \
-            -o dist/bitclone-usb.exe ./cmd/bitclone-usb
+            -o dist/imagen-usb.exe ./cmd/imagen-usb
       - uses: actions/upload-artifact@v4
         with:
-          name: bitclone-usb
-          path: dist/bitclone-usb.exe
+          name: imagen-usb
+          path: dist/imagen-usb.exe
 
   iso:
     needs: test
@@ -61,12 +61,12 @@ jobs:
       - name: Stable file name + checksum
         run: |
           sudo chown -R "$USER" dist
-          mv dist/bitclone-*-amd64.iso dist/bitclone-amd64.iso
-          (cd dist && sha256sum bitclone-amd64.iso > bitclone-amd64.iso.sha256)
+          mv dist/imagen-*-amd64.iso dist/imagen-amd64.iso
+          (cd dist && sha256sum imagen-amd64.iso > imagen-amd64.iso.sha256)
       - uses: actions/upload-artifact@v4
         with:
-          name: bitclone-iso
-          path: dist/bitclone-amd64.iso*
+          name: imagen-iso
+          path: dist/imagen-amd64.iso*
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -81,5 +81,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "bitclone $GITHUB_REF_NAME" \
-            --notes "Download **bitclone-usb.exe**, run it, and it will download the boot image and write your USB stick."
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "ImaGen $GITHUB_REF_NAME" \
+            --notes "Download **imagen-usb.exe**, run it, and it will download the boot image and write your USB stick."

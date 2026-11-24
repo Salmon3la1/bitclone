@@ -1,7 +1,7 @@
 /dist/
-/bitclone
-/bitclone.exe
-/live/config/includes.chroot/usr/local/bin/bitclone
+/imagen
+/imagen.exe
+/live/config/includes.chroot/usr/local/bin/imagen
 /live/.build/
 /live/cache/
 /live/chroot/

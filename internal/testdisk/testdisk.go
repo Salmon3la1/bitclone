@@ -6,7 +6,7 @@ import (
 	"hash/crc32"
 	"math/rand"
 
-	"bitclone/internal/extent"
+	"imagen/internal/extent"
 )
 
 // Part is a GPT partition to create (byte offsets must be 512-aligned).

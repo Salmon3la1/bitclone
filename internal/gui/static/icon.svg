@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- ImaGen icon. Same shapes as tools/icongen (keep in sync). -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4c9aff"/>
+      <stop offset="1" stop-color="#1f4fa8"/>
+    </linearGradient>
+    <mask id="m">
+      <rect width="256" height="256" fill="#fff"/>
+      <circle cx="90" cy="90" r="19" fill="#000"/>
+      <circle cx="160" cy="160" r="77" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#g)"/>
+  <circle cx="90" cy="90" r="68" fill="#fff" fill-opacity=".55" mask="url(#m)"/>
+  <circle cx="163" cy="165" r="70" fill="#0b2a66" fill-opacity=".35"/>
+  <circle cx="160" cy="160" r="68" fill="#fff"/>
+  <circle cx="160" cy="160" r="50" fill="none" stroke="#c9dcff" stroke-width="5"/>
+  <circle cx="160" cy="160" r="19" fill="#2f6fd1"/>
+  <circle cx="160" cy="160" r="7" fill="#fff"/>
+</svg>

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"bitclone/internal/winacct"
-	"bitclone/internal/winacct/winaccttest"
+	"imagen/internal/winacct"
+	"imagen/internal/winacct/winaccttest"
 )
 
 func volume() fstest.MapFS {

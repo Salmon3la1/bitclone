@@ -41,13 +41,13 @@ function renderISO() {
   if (!iso) {
     box.replaceChildren(h('div', { class: 'empty' }, S.status.repo
       ? 'No boot image yet. Click “Download latest”, or choose an ISO file you already have.'
-      : 'Choose the bitclone ISO file (bitclone-…-amd64.iso).'));
+      : 'Choose the ImaGen ISO file (imagen-…-amd64.iso).'));
   } else {
     box.replaceChildren(h('div', { class: 'isobox' },
       h('div', { class: 'row' }, h('b', { class: 'grow' }, iso.name),
-        iso.bitclone ? h('span', { class: 'tag green' }, 'bitclone image') : h('span', { class: 'tag orange' }, 'not a bitclone image')),
+        iso.imagen ? h('span', { class: 'tag green' }, 'ImaGen image') : h('span', { class: 'tag orange' }, 'not an ImaGen image')),
       h('div', { class: 'muted small' }, fmtBytes(iso.size), ' · ', iso.modified, ' · ', iso.path),
-      !iso.bitclone ? h('div', { class: 'notice' }, 'This ISO is not labelled BITCLONE. It can still be written, but it will not start bitclone.') : null));
+      !iso.imagen ? h('div', { class: 'notice' }, 'This ISO is not labelled IMAGEN. It can still be written, but it will not start imagen.') : null));
   }
   $('#btn-download').classList.toggle('hidden', !S.status.repo);
   const sel = $('#iso-list');
@@ -93,20 +93,11 @@ async function loadISOs() {
   renderISO();
 }
 
-function modal(title, body, yes, requireText) {
+function modal(title, body, yes) {
   return new Promise((resolve) => {
     $('#modal-title').textContent = title;
     $('#modal-body').replaceChildren(body);
-    const y = $('#modal-yes'); y.textContent = yes;
-    let input = null;
-    if (requireText) {
-      input = h('input', { type: 'text', autocomplete: 'off', spellcheck: 'false' });
-      $('#modal-body').append(input);
-      y.disabled = true;
-      input.oninput = () => { y.disabled = input.value.trim().toUpperCase() !== requireText; };
-      input.onkeydown = (e) => { if (e.key === 'Enter' && !y.disabled) y.click(); };
-      setTimeout(() => input.focus(), 0);
-    } else y.disabled = false;
+    const y = $('#modal-yes'); y.textContent = yes; y.disabled = false;
     $('#modal').classList.remove('hidden');
     const done = (v) => { $('#modal').classList.add('hidden'); resolve(v); };
     y.onclick = () => done(true); $('#modal-no').onclick = () => done(false);
@@ -132,7 +123,7 @@ function showJob() {
   $('#job-error').textContent = j.error || ''; $('#job-error').classList.toggle('hidden', !j.error || j.state === 'cancelled');
   const msg = $('#job-done-msg');
   msg.classList.toggle('hidden', !(j.state === 'done' && j.kind === 'write'));
-  msg.replaceChildren('Your bitclone USB stick is ready. Remove it safely, plug it into the PC whose disk you want to back up, ',
+  msg.replaceChildren('Your ImaGen USB stick is ready. Remove it safely, plug it into the PC whose disk you want to back up, ',
     'and pick the USB stick in that PC’s boot menu (usually F12, F11, F8 or Esc right after power-on). ',
     'If Windows asks to format the stick now, click Cancel.');
   const log = $('#job-log'); log.textContent = p.log.join('\n'); log.scrollTop = log.scrollHeight;
@@ -168,8 +159,7 @@ $('#btn-download').onclick = () => api('iso/download', {}).catch((e) => alert(e.
 $('#btn-write').onclick = async () => {
   const d = S.sel, iso = S.status.iso;
   const ok = await modal(`Erase ${d.model}?`, h('div', {},
-    h('p', {}, 'All files on ', h('b', {}, d.model), ` (${fmtBytes(d.size)}`, d.letters.length ? ', drive ' + d.letters.join(', ') + ':' : '', ') will be permanently deleted, and it will be replaced with ', h('b', {}, iso.name), '.'),
-    h('p', {}, 'Type ', h('b', {}, 'ERASE'), ' to continue:')), 'Erase and write', 'ERASE');
+    h('p', {}, 'All files on ', h('b', {}, d.model), ` (${fmtBytes(d.size)}`, d.letters.length ? ', drive ' + d.letters.join(', ') + ':' : '', ') will be permanently deleted, and it will be replaced with ', h('b', {}, iso.name), '.')), 'Erase and write');
   if (!ok) return;
   try { await api('write', d); } catch (e) { alert(e.message); }
 };

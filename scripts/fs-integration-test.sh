@@ -1,13 +1,13 @@
 #!/bin/sh
 # Real-filesystem round trip, run as root on Linux:
-#   sudo scripts/fs-integration-test.sh ./bitclone
+#   sudo scripts/fs-integration-test.sh ./imagen
 # For each of ext4, NTFS and FAT32 it builds a GPT disk image with real mkfs,
 # fills it with files (and deleted garbage), takes a used-blocks-only image,
 # restores it to a LARGER disk, then checks: fsck is clean, every file's
 # checksum matches, and the disk GUID, partition GUID and filesystem UUID are
 # identical to the source.
 set -eu
-BC=$(realpath "${1:-./bitclone}")
+BC=$(realpath "${1:-./imagen}")
 W=$(mktemp -d)
 trap 'umount "$W/mnt" 2>/dev/null || true; losetup -D 2>/dev/null || true; rm -rf "$W"' EXIT
 mkdir -p "$W/mnt"

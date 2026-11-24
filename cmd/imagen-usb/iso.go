@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"bitclone/internal/engine"
+	"imagen/internal/engine"
 )
 
 // ISOInfo describes a boot image on disk.
@@ -24,8 +24,8 @@ type ISOInfo struct {
 	Name     string `json:"name"`
 	Size     int64  `json:"size"`
 	Label    string `json:"label"`
-	Hybrid   bool   `json:"hybrid"`   // has an MBR, so it boots when written to a USB stick
-	Bitclone bool   `json:"bitclone"` // volume label is BITCLONE
+	Hybrid   bool   `json:"hybrid"` // has an MBR, so it boots when written to a USB stick
+	Imagen   bool   `json:"imagen"` // volume label is IMAGEN
 	Modified string `json:"modified"`
 }
 
@@ -48,7 +48,7 @@ func inspectISO(path string) (*ISOInfo, error) {
 	if string(head[0x8001:0x8006]) == "CD001" {
 		in.Label = strings.TrimSpace(string(head[0x8028:0x8048]))
 	}
-	in.Bitclone = strings.EqualFold(in.Label, "BITCLONE")
+	in.Imagen = strings.EqualFold(in.Label, "IMAGEN")
 	if !in.Hybrid {
 		return in, errors.New("this image has no boot record for USB sticks (not an ISO-hybrid image)")
 	}
@@ -60,12 +60,12 @@ func cacheDir() string {
 	if err != nil {
 		d = os.TempDir()
 	}
-	d = filepath.Join(d, "bitclone-usb")
+	d = filepath.Join(d, "imagen-usb")
 	os.MkdirAll(d, 0o755)
 	return d
 }
 
-// findLocalISOs looks for bitclone*.iso next to the program, in the
+// findLocalISOs looks for imagen*.iso next to the program, in the
 // current folder, in Downloads, in a dist folder and in the download cache.
 func findLocalISOs() []*ISOInfo {
 	var dirs []string
@@ -82,7 +82,7 @@ func findLocalISOs() []*ISOInfo {
 	seen := map[string]bool{}
 	var out []*ISOInfo
 	for _, d := range dirs {
-		m, _ := filepath.Glob(filepath.Join(d, "bitclone*.iso"))
+		m, _ := filepath.Glob(filepath.Join(d, "imagen*.iso"))
 		for _, p := range m {
 			ap, _ := filepath.Abs(p)
 			if seen[strings.ToLower(ap)] {
@@ -126,7 +126,7 @@ func downloadISO(ctx context.Context, url string, p *engine.Progress) (string, e
 	if r.StatusCode != 200 {
 		return "", fmt.Errorf("download failed: %s (has a release been published?)", r.Status)
 	}
-	dest := filepath.Join(cacheDir(), "bitclone-amd64.iso")
+	dest := filepath.Join(cacheDir(), "imagen-amd64.iso")
 	tmp := dest + ".part"
 	f, err := os.Create(tmp)
 	if err != nil {

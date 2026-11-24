@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"bitclone/internal/extent"
-	"bitclone/internal/image"
-	"bitclone/internal/part"
-	"bitclone/internal/testdisk"
+	"imagen/internal/extent"
+	"imagen/internal/image"
+	"imagen/internal/part"
+	"imagen/internal/testdisk"
 )
 
 const MiB = 1 << 20

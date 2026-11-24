@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"bitclone/internal/disk"
-	"bitclone/internal/engine"
-	"bitclone/internal/image"
+	"imagen/internal/disk"
+	"imagen/internal/engine"
+	"imagen/internal/image"
 )
 
 //go:embed static
@@ -72,7 +72,7 @@ func Serve(addr string) error {
 // cannot send without a CORS preflight (which we never grant).
 func post(h func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.Header.Get("X-Bitclone") != "1" {
+		if r.Method != http.MethodPost || r.Header.Get("X-Imagen") != "1" {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -140,8 +140,8 @@ type entry struct {
 
 func defaultDir() string {
 	if runtime.GOOS == "linux" {
-		if _, err := os.Stat("/mnt/bitclone"); err == nil {
-			return "/mnt/bitclone"
+		if _, err := os.Stat("/mnt/imagen"); err == nil {
+			return "/mnt/imagen"
 		}
 		return "/mnt"
 	}

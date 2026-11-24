@@ -6,7 +6,7 @@ import (
 	"io"
 	"unicode/utf16"
 
-	"bitclone/internal/extent"
+	"imagen/internal/extent"
 )
 
 // ntfs reads the $Bitmap metadata file (MFT record 6) to find used clusters.

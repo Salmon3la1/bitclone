@@ -41,7 +41,7 @@ code, .mono { font-family: "DejaVu Sans Mono", ui-monospace, Consolas, monospace
 .top { display: flex; align-items: center; gap: 24px; padding: 12px 24px; background: var(--panel);
   border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
 .brand { font-weight: 700; font-size: 20px; letter-spacing: .3px; }
-.logo { color: var(--accent); }
+.logo { width: 26px; height: 26px; vertical-align: -6px; margin-right: 4px; }
 nav { display: flex; gap: 6px; flex: 1; }
 nav button { background: transparent; border-color: transparent; }
 nav button.active { background: var(--panel2); border-color: var(--line); color: #fff; }

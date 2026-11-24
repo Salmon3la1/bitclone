@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"bitclone/internal/engine"
+	"imagen/internal/engine"
 )
 
 func fakeStick(t *testing.T, size int) *os.File {

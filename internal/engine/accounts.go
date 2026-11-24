@@ -4,8 +4,8 @@ import (
 	"errors"
 	"os"
 
-	"bitclone/internal/disk"
-	"bitclone/internal/winacct"
+	"imagen/internal/disk"
+	"imagen/internal/winacct"
 )
 
 // WindowsInstall is a Windows installation found on a partition.

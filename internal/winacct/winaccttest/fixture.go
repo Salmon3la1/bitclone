@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	rt "bitclone/internal/winreg/regtest"
+	rt "imagen/internal/winreg/regtest"
 )
 
 // MachineSID is the fixture's local machine SID.

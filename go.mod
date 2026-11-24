@@ -1,3 +1,3 @@
-module bitclone
+module imagen
 
 go 1.22

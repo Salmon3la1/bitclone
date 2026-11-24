@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"bitclone/internal/extent"
+	"imagen/internal/extent"
 )
 
 const (

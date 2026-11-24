@@ -1,8 +1,8 @@
 package engine
 
 import (
-	"bitclone/internal/disk"
-	"bitclone/internal/fs"
+	"imagen/internal/disk"
+	"imagen/internal/fs"
 )
 
 // DescribeDisks lists disks and identifies the filesystem of each partition.

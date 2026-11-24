@@ -203,7 +203,7 @@ func CheckWritable(path string) error {
 		return err
 	}
 	if boot, _ := DiskOfPath("/run/live/medium"); boot != "" && boot == name {
-		return fmt.Errorf("%s is the USB stick bitclone booted from", path)
+		return fmt.Errorf("%s is the USB stick ImaGen booted from", path)
 	}
 	for dev, mps := range Mounts() {
 		if d, _ := DiskOfPath(dev); d == name {
@@ -234,9 +234,9 @@ func Reread(path string) {
 	exec.Command("udevadm", "settle").Run()
 }
 
-// Mount mounts a partition under /mnt/bitclone/<name> and returns the mountpoint.
+// Mount mounts a partition under /mnt/imagen/<name> and returns the mountpoint.
 func Mount(dev string) (string, error) {
-	mp := "/mnt/bitclone/" + filepath.Base(dev)
+	mp := "/mnt/imagen/" + filepath.Base(dev)
 	if err := os.MkdirAll(mp, 0o755); err != nil {
 		return "", err
 	}
@@ -255,7 +255,7 @@ func Mount(dev string) (string, error) {
 
 // MountRO gives read-only access to a partition's files. If the partition is
 // already mounted, its existing mountpoint is returned. Otherwise it is
-// mounted read-only under /mnt/bitclone/.ro-<name> (hidden from the file
+// mounted read-only under /mnt/imagen/.ro-<name> (hidden from the file
 // browser); call the returned function to unmount it again. Nothing is
 // written to the partition: no journal replay, no hibernation-file removal.
 func MountRO(dev string) (string, func(), error) {
@@ -265,7 +265,7 @@ func MountRO(dev string) (string, func(), error) {
 	if mps := Mounts()[dev]; len(mps) > 0 && mps[0] != "[swap]" {
 		return mps[0], func() {}, nil
 	}
-	mp := "/mnt/bitclone/.ro-" + filepath.Base(dev)
+	mp := "/mnt/imagen/.ro-" + filepath.Base(dev)
 	if err := os.MkdirAll(mp, 0o755); err != nil {
 		return "", nil, err
 	}

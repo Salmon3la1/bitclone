@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"bitclone/internal/winreg"
-	rt "bitclone/internal/winreg/regtest"
+	"imagen/internal/winreg"
+	rt "imagen/internal/winreg/regtest"
 )
 
 func open(t *testing.T, b []byte) *winreg.Key {
@@ -104,12 +104,12 @@ func TestCorruptNoPanic(t *testing.T) {
 	}
 }
 
-// BITCLONE_REAL_HIVE=path runs the reader over a hive saved by Windows
+// IMAGEN_REAL_HIVE=path runs the reader over a hive saved by Windows
 // ("reg save HKCU\Software\X file.hiv"), as a check against the real format.
 func TestRealHive(t *testing.T) {
-	p := os.Getenv("BITCLONE_REAL_HIVE")
+	p := os.Getenv("IMAGEN_REAL_HIVE")
 	if p == "" {
-		t.Skip("set BITCLONE_REAL_HIVE")
+		t.Skip("set IMAGEN_REAL_HIVE")
 	}
 	b, err := os.ReadFile(p)
 	if err != nil {
@@ -140,7 +140,7 @@ func TestRealHive(t *testing.T) {
 	}
 	walk(k)
 	t.Logf("root %q: %d keys, %d values read", k.Name, keys, vals)
-	if want := os.Getenv("BITCLONE_REAL_HIVE_CHECK"); want != "" { // path|name|expected
+	if want := os.Getenv("IMAGEN_REAL_HIVE_CHECK"); want != "" { // path|name|expected
 		f := strings.Split(want, "|")
 		if got := k.GetString(f[0], f[1]); got != f[2] {
 			t.Fatalf("%s\\%s = %q, want %q", f[0], f[1], got, f[2])

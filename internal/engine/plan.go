@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"bitclone/internal/extent"
-	"bitclone/internal/fs"
-	"bitclone/internal/image"
-	"bitclone/internal/part"
+	"imagen/internal/extent"
+	"imagen/internal/fs"
+	"imagen/internal/image"
+	"imagen/internal/part"
 )
 
 const (

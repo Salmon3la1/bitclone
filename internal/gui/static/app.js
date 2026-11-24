@@ -21,7 +21,7 @@ function h(tag, attrs, ...kids) {
 async function api(path, body) {
   const opt = body === undefined ? {} : {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Bitclone': '1' },
+    headers: { 'Content-Type': 'application/json', 'X-Imagen': '1' },
     body: JSON.stringify(body),
   };
   const r = await fetch('/api/' + path, opt);
@@ -269,7 +269,7 @@ function viewBackup() {
     h('div', { class: 'cards' }, S.disks.map((d) => diskCard(d, {
       selected: d.path === b.source,
       disabled: d.bootMedia,
-      reason: d.bootMedia ? 'This is the bitclone USB stick' : null,
+      reason: d.bootMedia ? 'This is the ImaGen USB stick' : null,
       onClick: () => { b.source = d.path; b.nameTouched = false; render(); },
     }))),
     !S.sys.rawDisk || S.disksErr ? manualPath('Source:', b.source, (v) => { b.source = v; render(); }) : null);
@@ -376,7 +376,7 @@ function viewRestore() {
     diskErr(),
     h('div', { class: 'cards' }, S.disks.map((d) => {
       let reason = null;
-      if (d.bootMedia) reason = 'This is the bitclone USB stick';
+      if (d.bootMedia) reason = 'This is the ImaGen USB stick';
       else if (imgVol && imgVol.d.path === d.path) reason = 'The image is stored on this disk';
       else if (m && d.size < m.source.size) reason = `Too small: needs at least ${fmtBytes(m.source.size)}`;
       const mounted = (d.partitions || []).some((p) => p.mountpoints && p.mountpoints.length);
@@ -406,11 +406,9 @@ function viewRestore() {
 
 async function startRestore() {
   const r = S.restore;
-  const tgt = S.disks.find((d) => d.path === r.target);
-  const word = tgt ? tgt.name : r.target;
-  const ok = await modal('Overwrite ' + r.target + '?', h('div', {},
+  const ok = await modal('Overwrite ' + r.target + '?',
     h('p', {}, 'All data on ', h('b', {}, r.target), srcLabel(r.target), ' will be permanently replaced by the image.'),
-    h('p', {}, 'Type ', h('b', { class: 'mono' }, word), ' to confirm:')), { yes: 'Erase and restore', danger: true, require: word });
+    { yes: 'Erase and restore', danger: true });
   if (!ok) return;
   try {
     await api('restore', { image: r.image, target: r.target, fixGPT: r.fixGPT, zeroFill: r.zeroFill, verifyFirst: r.verifyFirst });
@@ -447,7 +445,7 @@ function viewDisks() {
           h('td', { class: 'mono' }, p.path), h('td', {}, (p.fs || '?').toUpperCase()), h('td', {}, p.label || ''),
           h('td', { class: 'mono small' }, p.uuid || ''), h('td', { class: 'r' }, fmtBytes(p.size)),
           h('td', {}, (p.mountpoints || []).map((mp) => h('div', {}, h('span', { class: 'mono small' }, mp), ' ',
-            mp.startsWith('/mnt/bitclone') ? h('button', { class: 'small', onclick: async () => {
+            mp.startsWith('/mnt/imagen') ? h('button', { class: 'small', onclick: async () => {
               try { await api('unmount', { mountpoint: mp }); } catch (e) { alert(e.message); }
               loadDisks();
             } }, 'Unmount') : null)))))))));
@@ -539,23 +537,14 @@ function viewAccounts() {
 }
 
 // ---------- modal ----------
-function modal(title, body, { yes = 'OK', danger = false, require = null } = {}) {
+function modal(title, body, { yes = 'OK', danger = false } = {}) {
   return new Promise((resolve) => {
     $('#modal-title').textContent = title;
-    const b = $('#modal-body');
-    b.replaceChildren(body);
+    $('#modal-body').replaceChildren(body);
     const yesBtn = $('#modal-yes');
     yesBtn.textContent = yes;
     yesBtn.className = danger ? 'danger' : 'primary';
-    let input = null;
-    if (require) {
-      input = h('input', { type: 'text', autocomplete: 'off', spellcheck: 'false' });
-      b.append(input);
-      yesBtn.disabled = true;
-      input.addEventListener('input', () => { yesBtn.disabled = input.value.trim() !== require; });
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !yesBtn.disabled) yesBtn.click(); });
-      setTimeout(() => input.focus(), 0);
-    } else yesBtn.disabled = false;
+    yesBtn.disabled = false;
     $('#modal').classList.remove('hidden');
     const done = (v) => { $('#modal').classList.add('hidden'); yesBtn.onclick = null; $('#modal-no').onclick = null; resolve(v); };
     yesBtn.onclick = () => done(true);
@@ -611,7 +600,7 @@ $('#job-cancel').onclick = async () => {
 document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => { S.view = b.dataset.view; render(); }));
 for (const [id, action, label] of [['#btn-reboot', 'reboot', 'Restart'], ['#btn-poweroff', 'poweroff', 'Shut down']]) {
   $(id).onclick = async () => {
-    if (await modal(label + ' the computer?', h('p', {}, 'Remove the bitclone USB stick afterwards if you want to boot the restored disk.'), { yes: label })) {
+    if (await modal(label + ' the computer?', h('p', {}, 'Remove the ImaGen USB stick afterwards if you want to boot the restored disk.'), { yes: label })) {
       api('power', { action }).catch((e) => alert(e.message));
     }
   };

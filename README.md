@@ -1,4 +1,4 @@
-# bitclone
+# ImaGen
 
 Sector-exact disk imaging that boots from a USB stick. Back up a whole disk to
 an image file, then restore it to the same or another disk. The restored disk
@@ -23,7 +23,7 @@ behaves like the original, including its **disk signature**.
 ### About "disk signature"
 
 Everything that identifies a disk **on the disk itself** is copied exactly,
-because it lives in sectors bitclone always copies verbatim:
+because it lives in sectors ImaGen always copies verbatim:
 
 * MBR disk signature (offset 0x1B8), which Windows uses to map drive letters and BCD boot entries
 * GPT disk GUID and every partition's unique GUID
@@ -38,7 +38,7 @@ burned into the drive's firmware. No imaging tool can change them.
 
 ## How "used data only" works
 
-bitclone reads each filesystem's own allocation map:
+ImaGen reads each filesystem's own allocation map:
 
 * **NTFS**: the `$Bitmap` metadata file (MFT record 6)
 * **ext2/3/4**: block-group bitmaps (including `flex_bg` and uninitialised groups)
@@ -55,16 +55,16 @@ down, or turn off Fast Startup). Otherwise NTFS is left in a hibernated state.
 
 ## Making the boot USB (Windows)
 
-1. Download **`bitclone-usb.exe`** from the project's GitHub Releases page and
+1. Download **`imagen-usb.exe`** from the project's GitHub Releases page and
    run it. Click **Yes** on the Windows administrator prompt, which is needed
    to write a USB stick.
 2. **Boot image**: click **Download latest**, or **Choose ISO file…** if you
-   already have `bitclone-…-amd64.iso`. An ISO placed next to the program or in
+   already have `imagen-…-amd64.iso`. An ISO placed next to the program or in
    Downloads is picked up automatically.
 3. **USB stick**: plug in a stick (8 GB or larger) and select it. Only USB and
    SD drives are listed. Internal, boot and system disks are never shown.
-4. **Write**: type `ERASE` to confirm. The app writes the image, reads it all
-   back to verify it, and tells you when the stick is ready. If Windows then
+4. **Write**: click **Write USB stick**, then **Erase and write**. The app writes the
+   image, reads it all back to verify it, and tells you when the stick is ready. If Windows then
    offers to format the stick, click **Cancel**.
 
 Before erasing, the app checks again that the selected drive is the same one
@@ -79,11 +79,11 @@ external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
 1. Plug the stick into the PC whose disk you want to image.
 2. Boot the PC from the stick (boot menu: usually F12, F11, F8 or Esc). It works with both UEFI and legacy BIOS. You may
    need to disable Secure Boot.
-3. The bitclone interface opens full screen:
+3. The ImaGen interface opens full screen:
    * **Back up**: pick the disk, choose *Used data only* or *Every sector*,
      mount a destination drive, pick a folder, then Start.
    * **Restore**: open the drive holding the image, pick the `.bci`, pick the
-     target disk, then type its name to confirm.
+     target disk, then click **Erase and restore** to confirm.
    * **Verify**: check an image without writing anything.
    * **Accounts**: lists the user accounts of every Windows installation on the
      PC: local, Microsoft, work or school (Azure AD) and domain accounts, with
@@ -97,15 +97,15 @@ external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
 ## Command line
 
 ```
-bitclone list
-bitclone analyze /dev/sda                          # what would be copied
-bitclone backup  -source /dev/sda -out /mnt/x/pc.bci -mode used -verify
-bitclone backup  -source /dev/sda -out /mnt/x/pc.bci -mode full -split 4000M
-bitclone restore -image /mnt/x/pc.bci -target /dev/sdb
-bitclone verify  /mnt/x/pc.bci
-bitclone info    /mnt/x/pc.bci
-bitclone accounts                                  # Windows user accounts on all disks
-bitclone gui                                       # web UI on 127.0.0.1:8080
+imagen list
+imagen analyze /dev/sda                          # what would be copied
+imagen backup  -source /dev/sda -out /mnt/x/pc.bci -mode used -verify
+imagen backup  -source /dev/sda -out /mnt/x/pc.bci -mode full -split 4000M
+imagen restore -image /mnt/x/pc.bci -target /dev/sdb
+imagen verify  /mnt/x/pc.bci
+imagen info    /mnt/x/pc.bci
+imagen accounts                                  # Windows user accounts on all disks
+imagen gui                                       # web UI on 127.0.0.1:8080
 ```
 
 On Windows or macOS the same binary works with disk *image files* (for
@@ -118,24 +118,24 @@ USB runs Linux.
 
 ```
 go test ./...
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bitclone ./cmd/bitclone
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o imagen ./cmd/imagen
 ```
 
 **Windows USB creator**:
 
 ```
-go build -ldflags "-H windowsgui -X main.releaseRepo=OWNER/REPO" -o bitclone-usb.exe ./cmd/bitclone-usb
+go build -ldflags "-H windowsgui -X main.releaseRepo=OWNER/REPO" -o imagen-usb.exe ./cmd/imagen-usb
 ```
 
 `releaseRepo` sets where **Download latest** fetches
-`releases/latest/download/bitclone-amd64.iso` from. Without it, the app only
+`releases/latest/download/imagen-amd64.iso` from. Without it, the app only
 uses local ISO files.
 
 **Bootable ISO** needs Linux (Debian `live-build`). Choose one:
 
 * **GitHub Actions** (easiest from Windows): push this repo to GitHub, then
   push a tag such as `v0.1.0`. The `build` workflow runs all tests, builds the
-  ISO and `bitclone-usb.exe`, and publishes both as a GitHub Release (about
+  ISO and `imagen-usb.exe`, and publishes both as a GitHub Release (about
   15 minutes). Every normal push also uploads them as build artifacts.
 * **Docker** (Linux, or Docker Desktop with WSL2): `sh scripts/build-iso-docker.sh`
 * **Debian/Ubuntu machine**: `sudo sh scripts/build-iso.sh`
@@ -149,7 +149,7 @@ The ISO lands in `dist/`.
   used-mode (free space skipped, identity kept, GPT moved on a larger
   target), full-mode (SHA-256 identical), split images, and corruption and
   truncation detection.
-* `sudo scripts/fs-integration-test.sh ./bitclone` (Linux) runs the
+* `sudo scripts/fs-integration-test.sh ./imagen` (Linux) runs the
   real-filesystem round trip. It builds ext4, NTFS and FAT32 with real `mkfs`,
   writes files, images them in used mode, and restores to a larger disk. Then
   it checks that `fsck` is clean, file checksums match, and the disk GUID,
@@ -173,8 +173,8 @@ all-zero (zero chunks take no space). Large images continue in
 ## Layout
 
 ```
-cmd/bitclone        CLI entry point (runs on the boot USB)
-cmd/bitclone-usb    Windows USB creator (elevation, USB-only disk list, write + verify)
+cmd/imagen          CLI entry point (runs on the boot USB)
+cmd/imagen-usb      Windows USB creator (elevation, USB-only disk list, write + verify)
 internal/part       MBR/GPT parsing, GPT backup relocation
 internal/fs         NTFS / ext / FAT used-block detection, fs identification
 internal/image      .bci container, split files
@@ -185,4 +185,7 @@ internal/winacct    Windows account listing (SAM, ProfileList)
 internal/gui        web UI (embedded) shown in the kiosk
 live/               Debian live-build config for the boot USB
 scripts/            ISO build and real-filesystem test scripts
+tools/icongen       draws the icon: icon.ico, and the .syso that embeds it
+                    (with a manifest) in imagen-usb.exe. Rerun after changing it:
+                    go run ./tools/icongen -out cmd/imagen-usb/winres -syso cmd/imagen-usb/rsrc_windows_amd64.syso
 ```

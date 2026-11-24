@@ -1,13 +1,13 @@
 #!/bin/sh
 # Runs inside the live system chroot during the build.
 set -e
-chmod 0755 /usr/local/bin/bitclone
-systemctl enable bitclone.service
-systemctl enable bitclone-kiosk.service
+chmod 0755 /usr/local/bin/imagen
+systemctl enable imagen.service
+systemctl enable imagen-kiosk.service
 systemctl set-default graphical.target
 # The kiosk owns tty1; keep a login shell on tty2 (Ctrl+Alt+F2) for the CLI.
 systemctl mask getty@tty1.service
-mkdir -p /mnt/bitclone
+mkdir -p /mnt/imagen
 # Debian's Firefox ESR also reads policies from its distribution folder.
 mkdir -p /usr/lib/firefox-esr/distribution
 cp /etc/firefox/policies/policies.json /usr/lib/firefox-esr/distribution/policies.json

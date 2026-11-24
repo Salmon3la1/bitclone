@@ -12,7 +12,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"bitclone/internal/extent"
+	"imagen/internal/extent"
 )
 
 // Result describes a filesystem found in a partition.

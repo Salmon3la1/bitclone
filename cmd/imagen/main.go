@@ -1,4 +1,4 @@
-// Command bitclone images and restores whole disks.
+// Command imagen images and restores whole disks.
 package main
 
 import (
@@ -14,21 +14,21 @@ import (
 	"strings"
 	"time"
 
-	"bitclone/internal/engine"
-	"bitclone/internal/gui"
+	"imagen/internal/engine"
+	"imagen/internal/gui"
 )
 
-const usage = `bitclone — sector-exact disk imaging
+const usage = `imagen — sector-exact disk imaging
 
 Usage:
-  bitclone list                              list disks
-  bitclone analyze [-mode used|full] DISK    show what a backup would copy
-  bitclone backup  -source DISK -out FILE.bci [-mode used|full] [-level 1] [-split 4000M] [-verify] [-force]
-  bitclone restore -image FILE.bci -target DISK [-yes] [-zero-fill] [-no-fix-gpt] [-verify-first]
-  bitclone verify  FILE.bci                  check image integrity
-  bitclone info    FILE.bci                  show image metadata
-  bitclone accounts [-dir FOLDER] [-json]   list Windows user accounts on all disks (read-only)
-  bitclone gui     [-listen 127.0.0.1:8080]  start the graphical interface
+  imagen list                              list disks
+  imagen analyze [-mode used|full] DISK    show what a backup would copy
+  imagen backup  -source DISK -out FILE.bci [-mode used|full] [-level 1] [-split 4000M] [-verify] [-force]
+  imagen restore -image FILE.bci -target DISK [-yes] [-zero-fill] [-no-fix-gpt] [-verify-first]
+  imagen verify  FILE.bci                  check image integrity
+  imagen info    FILE.bci                  show image metadata
+  imagen accounts [-dir FOLDER] [-json]   list Windows user accounts on all disks (read-only)
+  imagen gui     [-listen 127.0.0.1:8080]  start the graphical interface
 
 Modes:
   used  copy only blocks in use on NTFS, ext2/3/4 and FAT; other partitions,
@@ -68,7 +68,7 @@ func main() {
 	case "ping":
 		err = cmdPing(os.Args[2:])
 	case "version":
-		fmt.Println("bitclone", engine.ToolVersion)
+		fmt.Println("ImaGen", engine.ToolVersion)
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
@@ -228,9 +228,9 @@ func cmdRestore(ctx context.Context, args []string) error {
 	}
 	if !*yes {
 		fmt.Printf("Image of %s (%s, %s) taken %s\n", meta.Source.Model, meta.Source.Path, engine.HumanBytes(meta.Source.Size), meta.Created.Local().Format(time.RFC1123))
-		fmt.Printf("ALL DATA ON %s WILL BE DESTROYED. Type the target path to continue: ", *tgt)
+		fmt.Printf("ALL DATA ON %s WILL BE DESTROYED. Continue? [y/N] ", *tgt)
 		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		if strings.TrimSpace(line) != *tgt {
+		if a := strings.ToLower(strings.TrimSpace(line)); a != "y" && a != "yes" {
 			return fmt.Errorf("aborted")
 		}
 	}
@@ -266,7 +266,7 @@ func cmdGUI(args []string) error {
 	fl := flag.NewFlagSet("gui", flag.ExitOnError)
 	listen := fl.String("listen", "127.0.0.1:8080", "address to serve the interface on")
 	fl.Parse(args)
-	fmt.Fprintf(os.Stderr, "bitclone GUI on http://%s/\n", *listen)
+	fmt.Fprintf(os.Stderr, "ImaGen GUI on http://%s/\n", *listen)
 	return gui.Serve(*listen)
 }
 

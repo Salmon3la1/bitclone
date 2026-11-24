@@ -30,8 +30,8 @@ import (
 	"sync"
 	"time"
 
-	"bitclone/internal/extent"
-	"bitclone/internal/part"
+	"imagen/internal/extent"
+	"imagen/internal/part"
 )
 
 const (
@@ -251,10 +251,10 @@ func NewReader(r io.Reader) (*Reader, error) {
 	ir := &Reader{br: bufio.NewReaderSize(r, 1<<20), h: sha256.New()}
 	var hdr [16]byte
 	if err := ir.read(hdr[:]); err != nil {
-		return nil, fmt.Errorf("not a bitclone image: %w", err)
+		return nil, fmt.Errorf("not an ImaGen image: %w", err)
 	}
 	if string(hdr[:8]) != Magic {
-		return nil, errors.New("not a bitclone image (bad magic)")
+		return nil, errors.New("not an ImaGen image (bad magic)")
 	}
 	if v := binary.LittleEndian.Uint32(hdr[8:]); v != Version {
 		return nil, fmt.Errorf("unsupported image version %d", v)

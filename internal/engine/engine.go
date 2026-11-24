@@ -10,9 +10,9 @@ import (
 	"runtime"
 	"time"
 
-	"bitclone/internal/disk"
-	"bitclone/internal/image"
-	"bitclone/internal/part"
+	"imagen/internal/disk"
+	"imagen/internal/image"
+	"imagen/internal/part"
 )
 
 // ToolVersion is stamped into every image.
@@ -105,7 +105,7 @@ func Backup(ctx context.Context, o BackupOptions, p *Progress) (err error) {
 	}
 
 	meta := &image.Meta{
-		Tool: "bitclone", ToolVersion: ToolVersion, Created: time.Now().UTC(),
+		Tool: "ImaGen", ToolVersion: ToolVersion, Created: time.Now().UTC(),
 		Mode: o.Mode, ChunkSize: chunkSize,
 		Source:    image.SourceInfo{Path: o.Source, Model: o.Model, Serial: o.Serial, Size: src.Size, SectorSize: ss},
 		Table:     plan.Table,

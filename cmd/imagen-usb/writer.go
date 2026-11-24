@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"bitclone/internal/engine"
+	"imagen/internal/engine"
 )
 
 const (

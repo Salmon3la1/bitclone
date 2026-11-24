@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"bitclone/internal/winreg"
+	"imagen/internal/winreg"
 )
 
 // Account is one user account.
