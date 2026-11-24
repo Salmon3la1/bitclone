@@ -85,6 +85,12 @@ external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
    * **Restore**: open the drive holding the image, pick the `.bci`, pick the
      target disk, then type its name to confirm.
    * **Verify**: check an image without writing anything.
+   * **Accounts**: lists the user accounts of every Windows installation on the
+     PC: local, Microsoft, work or school (Azure AD) and domain accounts, with
+     administrator rights, enabled/disabled, last sign-in and profile folder.
+     It mounts each Windows partition read-only, reads the registry (SAM,
+     SOFTWARE, SYSTEM) and unmounts it again. Nothing is changed and no
+     passwords are read. BitLocker-encrypted partitions are listed as unreadable.
 4. A text console is on **Ctrl+Alt+F2** (user `user`, password `live`) for the
    command line.
 
@@ -98,6 +104,7 @@ bitclone backup  -source /dev/sda -out /mnt/x/pc.bci -mode full -split 4000M
 bitclone restore -image /mnt/x/pc.bci -target /dev/sdb
 bitclone verify  /mnt/x/pc.bci
 bitclone info    /mnt/x/pc.bci
+bitclone accounts                                  # Windows user accounts on all disks
 bitclone gui                                       # web UI on 127.0.0.1:8080
 ```
 
@@ -173,6 +180,8 @@ internal/fs         NTFS / ext / FAT used-block detection, fs identification
 internal/image      .bci container, split files
 internal/engine     analysis plan, backup / restore / verify pipelines
 internal/disk       Linux disk enumeration, safety checks, mount
+internal/winreg     read-only Windows registry hive reader
+internal/winacct    Windows account listing (SAM, ProfileList)
 internal/gui        web UI (embedded) shown in the kiosk
 live/               Debian live-build config for the boot USB
 scripts/            ISO build and real-filesystem test scripts

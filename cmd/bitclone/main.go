@@ -27,6 +27,7 @@ Usage:
   bitclone restore -image FILE.bci -target DISK [-yes] [-zero-fill] [-no-fix-gpt] [-verify-first]
   bitclone verify  FILE.bci                  check image integrity
   bitclone info    FILE.bci                  show image metadata
+  bitclone accounts [-dir FOLDER] [-json]   list Windows user accounts on all disks (read-only)
   bitclone gui     [-listen 127.0.0.1:8080]  start the graphical interface
 
 Modes:
@@ -60,6 +61,8 @@ func main() {
 		err = cmdVerify(ctx, os.Args[2:])
 	case "info":
 		err = cmdInfo(os.Args[2:])
+	case "accounts":
+		err = cmdAccounts(os.Args[2:])
 	case "gui":
 		err = cmdGUI(os.Args[2:])
 	case "ping":
@@ -282,4 +285,69 @@ func cmdPing(args []string) error {
 		time.Sleep(200 * time.Millisecond)
 	}
 	return fmt.Errorf("backend not reachable at %s", *addr)
+}
+
+// cmdAccounts lists Windows user accounts on every disk, or in one folder.
+func cmdAccounts(args []string) error {
+	fl := flag.NewFlagSet("accounts", flag.ExitOnError)
+	dir := fl.String("dir", "", "scan this folder (a mounted Windows volume) instead of all disks")
+	asJSON := fl.Bool("json", false, "print JSON")
+	fl.Parse(args)
+	var list []engine.WindowsInstall
+	if *dir != "" {
+		in, err := engine.WindowsAccountsAt(*dir)
+		if err != nil {
+			return err
+		}
+		list = []engine.WindowsInstall{{Partition: *dir, Install: in}}
+	} else {
+		var err error
+		if list, err = engine.WindowsAccounts(); err != nil {
+			return err
+		}
+	}
+	if *asJSON {
+		b, _ := json.MarshalIndent(list, "", "  ")
+		fmt.Println(string(b))
+		return nil
+	}
+	if len(list) == 0 {
+		fmt.Println("No Windows installation found.")
+	}
+	kinds := map[string]string{"local": "local", "microsoft": "Microsoft", "azuread": "work/school", "domain": "domain"}
+	for _, w := range list {
+		if w.Error != "" {
+			fmt.Printf("%s: %s\n\n", w.Partition, w.Error)
+			continue
+		}
+		fmt.Printf("%s  %s %s (build %s)  PC name %s\n", w.Partition, w.Product, w.Version, w.Build, w.ComputerName)
+		for _, m := range w.Warnings {
+			fmt.Println("  note:", m)
+		}
+		for _, a := range w.Accounts {
+			flags := []string{kinds[a.Kind]}
+			if a.Admin {
+				flags = append(flags, "admin")
+			}
+			if a.Disabled {
+				flags = append(flags, "disabled")
+			}
+			if a.Builtin {
+				flags = append(flags, "built-in")
+			}
+			last := "never"
+			if a.LastLogon != nil {
+				last = a.LastLogon.Local().Format("2006-01-02 15:04")
+			}
+			who := a.Name
+			if a.Email != "" {
+				who += " <" + a.Email + ">"
+			} else if a.FullName != "" {
+				who += " (" + a.FullName + ")"
+			}
+			fmt.Printf("  %-36s %-34s last sign-in %-16s %s\n", who, strings.Join(flags, ", "), last, a.Profile)
+		}
+		fmt.Println()
+	}
+	return nil
 }

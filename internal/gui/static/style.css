@@ -118,3 +118,4 @@ details summary { cursor: pointer; color: var(--muted); margin-top: 14px; }
 .notice.danger { border-color: var(--bad); background: #2a1517; }
 .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+tr.dim td { opacity: .6; }

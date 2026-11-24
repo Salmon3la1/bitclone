@@ -54,6 +54,7 @@ const S = {
             dir: null, name: '', nameTouched: false, level: 1, split: false, verify: true },
   restore: { image: null, info: null, infoErr: null, target: null, verifyFirst: true, fixGPT: true, zeroFill: false },
   verify: { image: null, info: null },
+  accounts: { scanned: false, loading: false, list: [], err: null, folder: '', builtin: {} },
   browse: {},
   dismissed: 0,
 };
@@ -62,7 +63,7 @@ function render() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === S.view));
   const main = $('#main');
   const scroll = window.scrollY;
-  main.replaceChildren(({ backup: viewBackup, restore: viewRestore, verify: viewVerify, disks: viewDisks })[S.view]());
+  main.replaceChildren(({ backup: viewBackup, restore: viewRestore, verify: viewVerify, disks: viewDisks, accounts: viewAccounts })[S.view]());
   window.scrollTo(0, scroll);
 }
 
@@ -450,6 +451,91 @@ function viewDisks() {
               try { await api('unmount', { mountpoint: mp }); } catch (e) { alert(e.message); }
               loadDisks();
             } }, 'Unmount') : null)))))))));
+}
+
+// ---------- accounts ----------
+const KIND = {
+  local: ['Local account', ''],
+  microsoft: ['Microsoft account', 'blue'],
+  azuread: ['Work or school', 'green'],
+  domain: ['Domain', 'orange'],
+};
+
+async function scanAccounts(folder) {
+  const a = S.accounts;
+  a.loading = true; a.err = null; render();
+  try {
+    a.list = (await api('accounts', folder ? { folder } : {})).installs || [];
+    a.scanned = true;
+  } catch (e) { a.err = e.message; }
+  a.loading = false; render();
+}
+
+function fmtWhen(t) {
+  if (!t) return h('span', { class: 'muted' }, 'Never');
+  const d = new Date(t);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' +
+         d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function accountRow(x) {
+  const [kind, color] = KIND[x.kind] || [x.kind, ''];
+  return h('tr', { class: x.disabled ? 'dim' : '' },
+    h('td', {}, h('b', {}, x.name),
+      x.fullName ? h('div', { class: 'muted small' }, x.fullName) : null,
+      x.email ? h('div', { class: 'muted small' }, x.email) : null),
+    h('td', {}, h('span', { class: 'tag ' + color, style: 'margin-left:0' }, kind),
+      x.builtin ? h('span', { class: 'tag' }, 'built-in') : null),
+    h('td', {}, x.admin ? h('span', { class: 'tag red', style: 'margin-left:0' }, 'Administrator') : h('span', { class: 'muted' }, 'Standard')),
+    h('td', {}, x.disabled ? h('span', { class: 'muted' }, 'Disabled') : 'Active'),
+    h('td', {}, fmtWhen(x.lastLogon), x.logons ? h('div', { class: 'muted small' }, x.logons + ' sign-ins') : null),
+    h('td', { class: 'mono small' }, x.profile || h('span', { class: 'muted' }, '–')));
+}
+
+function installCard(w, i) {
+  const a = S.accounts;
+  const where = h('div', { class: 'muted small' }, h('span', { class: 'mono' }, w.partition),
+    w.diskModel ? '  ·  ' + w.diskModel : '', w.size ? '  ·  ' + fmtBytes(w.size) : '', w.label ? `  ·  “${w.label}”` : '');
+  if (w.error) {
+    return h('section', { class: 'step' }, h('h2', {}, 'Partition could not be read'), where, h('div', { class: 'notice' }, w.error));
+  }
+  const all = w.accounts || [];
+  const builtin = all.filter((x) => x.builtin), users = all.filter((x) => !x.builtin);
+  const shown = a.builtin[i] ? all : users;
+  return h('section', { class: 'step' },
+    h('h2', {}, [w.product, w.version].filter(Boolean).join(' '),
+      w.computerName ? h('span', { class: 'muted', style: 'font-weight:400' }, ' — PC name ' + w.computerName) : null),
+    where, w.build ? h('div', { class: 'muted small' }, 'Build ' + w.build) : null,
+    (w.warnings || []).map((m) => h('div', { class: 'notice' }, m)),
+    h('p', { style: 'margin:12px 0 6px' }, `${users.length} user account${users.length === 1 ? '' : 's'}`,
+      users.some((x) => x.admin) ? `, ${users.filter((x) => x.admin).length} with administrator rights` : ''),
+    h('table', {},
+      h('tr', {}, h('th', {}, 'Account'), h('th', {}, 'Type'), h('th', {}, 'Rights'), h('th', {}, 'Status'), h('th', {}, 'Last sign-in'), h('th', {}, 'Profile folder')),
+      shown.map(accountRow)),
+    builtin.length ? h('div', { style: 'margin-top:8px' }, h('button', { class: 'small', onclick: () => { a.builtin[i] = !a.builtin[i]; render(); } },
+      (a.builtin[i] ? 'Hide' : 'Show') + ` built-in accounts (${builtin.length})`)) : null);
+}
+
+function viewAccounts() {
+  const a = S.accounts;
+  if (!a.scanned && !a.loading && !a.err && S.sys.rawDisk) setTimeout(() => scanAccounts(), 0);
+  const body = [];
+  if (a.loading) body.push(h('p', { class: 'muted' }, h('span', { class: 'spinner' }), 'Looking for Windows on every disk…'));
+  else if (a.err) body.push(h('div', { class: 'notice danger' }, a.err));
+  else if (a.scanned && !a.list.length) body.push(h('div', { class: 'notice info' }, 'No Windows installation was found on any disk.'));
+  else body.push(a.list.map(installCard));
+  return h('div', {},
+    h('div', { class: 'row' }, h('h1', { class: 'grow' }, 'Windows accounts'),
+      S.sys.rawDisk ? h('button', { class: 'small', disabled: a.loading, onclick: () => scanAccounts() }, 'Scan again') : null),
+    h('p', { class: 'lead' }, 'User accounts of every Windows installation on this computer’s disks. Read-only: nothing is changed and no passwords are read.'),
+    !S.sys.rawDisk ? h('div', { class: 'notice' }, 'Disk scanning only works on the bootable USB. Here you can scan a folder that contains a Windows volume.') : null,
+    body,
+    h('details', { open: !S.sys.rawDisk, style: 'margin-top:16px' }, h('summary', {}, 'Scan a folder instead'),
+      h('div', { class: 'row', style: 'margin-top:8px' },
+        h('input', { type: 'text', class: 'grow', value: a.folder, placeholder: 'Folder that contains Windows\\System32\\config',
+                     oninput: (e) => { a.folder = e.target.value.trim(); },
+                     onkeydown: (e) => { if (e.key === 'Enter' && a.folder) scanAccounts(a.folder); } }),
+        h('button', { class: 'primary', onclick: () => a.folder && scanAccounts(a.folder) }, 'Scan'))));
 }
 
 // ---------- modal ----------

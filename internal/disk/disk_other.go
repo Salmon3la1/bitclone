@@ -24,4 +24,7 @@ func SameDisk(a, b string) bool              { return false }
 func Reread(path string)                     {}
 func Mount(dev string) (string, error)       { return "", errUnsupported }
 func Unmount(mp string) error                { return errUnsupported }
-func Power(action string) error              { return errUnsupported }
+func MountRO(dev string) (string, func(), error) {
+	return "", nil, errUnsupported
+}
+func Power(action string) error { return errUnsupported }

@@ -253,6 +253,41 @@ func Mount(dev string) (string, error) {
 	return mp, nil
 }
 
+// MountRO gives read-only access to a partition's files. If the partition is
+// already mounted, its existing mountpoint is returned. Otherwise it is
+// mounted read-only under /mnt/bitclone/.ro-<name> (hidden from the file
+// browser); call the returned function to unmount it again. Nothing is
+// written to the partition: no journal replay, no hibernation-file removal.
+func MountRO(dev string) (string, func(), error) {
+	if r, err := filepath.EvalSymlinks(dev); err == nil {
+		dev = r
+	}
+	if mps := Mounts()[dev]; len(mps) > 0 && mps[0] != "[swap]" {
+		return mps[0], func() {}, nil
+	}
+	mp := "/mnt/bitclone/.ro-" + filepath.Base(dev)
+	if err := os.MkdirAll(mp, 0o755); err != nil {
+		return "", nil, err
+	}
+	var msgs []string
+	for _, args := range [][]string{
+		{"-o", "ro", dev, mp},
+		{"-t", "ntfs3", "-o", "ro", dev, mp},
+		{"-t", "ntfs-3g", "-o", "ro", dev, mp},
+	} {
+		out, err := exec.Command("mount", args...).CombinedOutput()
+		if err == nil {
+			return mp, func() {
+				exec.Command("umount", mp).Run()
+				os.Remove(mp)
+			}, nil
+		}
+		msgs = append(msgs, strings.TrimSpace(string(out)))
+	}
+	os.Remove(mp)
+	return "", nil, fmt.Errorf("could not open %s read-only: %s", dev, strings.Join(msgs, "; "))
+}
+
 // Unmount unmounts a mountpoint.
 func Unmount(mp string) error {
 	exec.Command("sync").Run()

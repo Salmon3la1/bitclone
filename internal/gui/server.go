@@ -63,6 +63,7 @@ func Serve(addr string) error {
 	mux.HandleFunc("/api/verify", post(s.verify))
 	mux.HandleFunc("/api/cancel", post(s.cancelJob))
 	mux.HandleFunc("/api/power", post(s.power))
+	mux.HandleFunc("/api/accounts", post(s.accounts))
 	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	return srv.ListenAndServe()
 }
@@ -350,6 +351,34 @@ func (s *server) cancelJob(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// accounts lists Windows user accounts. With a folder, it scans that folder;
+// otherwise every NTFS partition (mounted read-only for the scan). POST
+// because it mounts partitions; refused while a job runs so nothing gets
+// mounted under a backup or restore.
+func (s *server) accounts(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Folder string }
+	readJSON(r, &req)
+	if s.busy() {
+		writeErr(w, 409, errors.New("a backup or restore is running; wait for it to finish"))
+		return
+	}
+	if req.Folder != "" {
+		in, err := engine.WindowsAccountsAt(filepath.Clean(req.Folder))
+		if err != nil {
+			writeErr(w, 400, err)
+			return
+		}
+		writeJSON(w, map[string]any{"installs": []engine.WindowsInstall{{Partition: req.Folder, Install: in}}})
+		return
+	}
+	list, err := engine.WindowsAccounts()
+	if err != nil {
+		writeErr(w, 400, err)
+		return
+	}
+	writeJSON(w, map[string]any{"installs": list})
 }
 
 func (s *server) power(w http.ResponseWriter, r *http.Request) {
