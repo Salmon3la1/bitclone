@@ -213,8 +213,13 @@ func CheckWritable(path string) error {
 	return nil
 }
 
-// SameDisk reports whether two paths live on the same physical disk.
+// SameDisk reports whether two paths live on the same physical disk. At least
+// one of them must be a block device: two ordinary files (disk image files used
+// as source or target) never collide, even on the same filesystem.
 func SameDisk(a, b string) bool {
+	if !IsBlockDevice(a) && !IsBlockDevice(b) {
+		return false
+	}
 	da, _ := DiskOfPath(a)
 	db, _ := DiskOfPath(b)
 	return da != "" && da == db

@@ -20,6 +20,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+          cache: false
       - run: go vet ./...
       - run: go test ./...
       - name: Real-filesystem round trip (mkfs + fsck)
@@ -36,6 +37,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+          cache: false
       - run: go test ./cmd/bitclone-usb/
       - name: Build bitclone-usb.exe
         shell: bash
