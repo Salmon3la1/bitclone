@@ -302,3 +302,32 @@ func Power(action string) error {
 	exec.Command("sync").Run()
 	return exec.Command("systemctl", action).Run()
 }
+
+// FreeSpace reports the free and total bytes of the filesystem mounted at mp.
+func FreeSpace(mp string) (free, total int64, ok bool) {
+	var st syscall.Statfs_t
+	if err := syscall.Statfs(mp, &st); err != nil {
+		return 0, 0, false
+	}
+	return int64(st.Bavail) * int64(st.Bsize), int64(st.Blocks) * int64(st.Bsize), true
+}
+
+// MountForReading mounts a partition like Mount, but falls back to a
+// read-only mount (same mountpoint) when it cannot be mounted for writing,
+// e.g. an NTFS volume Windows left hibernated. readOnly reports which.
+func MountForReading(dev string) (mp string, readOnly bool, err error) {
+	if mp, err = Mount(dev); err == nil {
+		return mp, false, nil
+	}
+	mp = "/mnt/imagen/" + filepath.Base(dev)
+	for _, args := range [][]string{
+		{"-o", "ro", dev, mp},
+		{"-t", "ntfs3", "-o", "ro", dev, mp},
+		{"-t", "ntfs-3g", "-o", "ro", dev, mp},
+	} {
+		if exec.Command("mount", args...).Run() == nil {
+			return mp, true, nil
+		}
+	}
+	return "", false, err
+}

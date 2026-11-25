@@ -49,10 +49,11 @@ const BAD_FS = new Set(['swap', 'lvm2', 'luks', 'bitlocker']);
 const S = {
   sys: { rawDisk: true },
   disks: [], disksErr: null, disksLoaded: false,
+  space: {}, spaceLoaded: false, images: null, imagesLoading: false,
   view: 'backup',
   backup: { source: null, mode: 'used', plan: null, planErr: null, analyzing: false, planKey: '',
-            dir: null, name: '', nameTouched: false, level: 1, split: false, verify: true },
-  restore: { image: null, info: null, infoErr: null, target: null, verifyFirst: false, fixGPT: true, zeroFill: false },
+            dir: null, name: '', nameTouched: false, level: 1, split: false, verify: true, vol: null, dirNote: '', browsing: false },
+  restore: { image: null, info: null, infoErr: null, target: null, pick: null, browsing: false, verifyFirst: false, fixGPT: true, zeroFill: false },
   verify: { image: null, info: null },
   accounts: { scanned: false, loading: false, list: [], err: null, folder: '', builtin: {} },
   browse: {},
@@ -75,6 +76,7 @@ async function loadDisks() {
   } catch (e) { S.disksErr = e.message; }
   S.disksLoaded = true;
   render();
+  if (S.sys.rawDisk) loadSpace();
 }
 
 // ---------- shared components ----------
@@ -95,81 +97,157 @@ function diskCard(d, { selected, disabled, reason, onClick, extraTags }) {
     reason ? h('div', { class: 'sub warn' }, reason) : null);
 }
 
-// Where can images live? Every recognized filesystem not on the excluded disk.
-function volumeList(excludeDisk, onOpen) {
-  const vols = [];
+// ---------- drives and folders ----------
+const FOLDER = 'IMAGen'; // default folder for images, at the top of a drive
+const FS_NAMES = { ntfs: 'NTFS', exfat: 'exFAT', fat12: 'FAT', fat16: 'FAT', fat32: 'FAT32', fat: 'FAT', ext2: 'ext2', ext3: 'ext3',
+  ext4: 'ext4', ext: 'ext', xfs: 'XFS', btrfs: 'Btrfs', bitlocker: 'BitLocker', swap: 'swap', luks: 'LUKS', lvm2: 'LVM' };
+function fsName(fs) { return FS_NAMES[fs] || fs || 'unknown'; }
+const FOLDER_ICON = 'data:image/svg+xml,' + enc('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#4c9aff" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>');
+
+function partOf(path) {
+  for (const d of S.disks) for (const p of d.partitions || []) if (p.path === path) return { d, p };
+  return null;
+}
+// The name people know a drive by: its label, else the disk's make and model.
+function volName(d, p) {
+  if (p.label) return p.label;
+  const n = (d.partitions || []).filter((x) => x.fs && !BAD_FS.has(x.fs)).length;
+  return (d.model || d.name) + (n > 1 ? ` (partition ${p.number})` : '');
+}
+function visibleMount(p) { return (p.mountpoints || []).find((mp) => mp !== '[swap]' && !mp.includes('/.ro-')); }
+function spaceOf(p) {
+  const s = S.space[p.path];
+  if (!s || s.total <= 0 || s.used < 0) return null;
+  return { used: s.used, total: s.total, free: Math.max(0, s.total - s.used) };
+}
+// "Windows (NTFS, 180 GB used), Recovery (NTFS)" — what a disk holds now.
+function holds(d) {
+  const parts = (d.partitions || []).filter((p) => p.fs || p.size >= 1e9);
+  if (!parts.length) return 'nothing (no partitions)';
+  return parts.map((p) => {
+    const sp = spaceOf(p);
+    const name = p.label || (p.fs ? fsName(p.fs) + ' partition' : 'Unknown partition');
+    const detail = [p.label && p.fs ? fsName(p.fs) : null, sp ? fmtBytes(sp.used) + ' used' : null].filter(Boolean).join(', ');
+    return detail ? `${name} (${detail})` : name;
+  }).join(', ');
+}
+
+async function loadSpace() {
+  try { S.space = (await api('space')).space || {}; } catch (e) { /* free space stays unknown */ }
+  S.spaceLoaded = true;
+  render();
+}
+
+// Looks for drives, free space and images again.
+function rescan() {
+  S.disksLoaded = false; S.images = null; S.spaceLoaded = false;
+  Object.values(S.browse).forEach((b) => { b.data = null; });
+  render(); loadDisks();
+}
+function rescanBtn() { return h('button', { class: 'small', onclick: rescan }, 'Look for drives again'); }
+
+// Mounts a partition if needed and returns where its files are.
+async function openVolume(p, readOnlyOK) {
+  const mp = visibleMount(p);
+  if (mp) return mp;
+  const r = await api('mount', { device: p.path, readOnlyOK: !!readOnlyOK });
+  await loadDisks();
+  return r.mountpoint;
+}
+
+// Partitions an image could be saved on or read from, and what was left out.
+function driveVolumes(excludeDisk) {
+  const vols = [], skipped = [];
   for (const d of S.disks) {
-    if (d.path === excludeDisk) continue;
+    if (d.bootMedia) { skipped.push(`${d.model || d.name} (this USB stick)`); continue; }
+    if (d.path === excludeDisk) { skipped.push(`${d.model || d.name} (the disk being backed up)`); continue; }
     for (const p of d.partitions || []) {
-      if (!p.fs || BAD_FS.has(p.fs)) continue;
+      if (p.fs === 'bitlocker') { skipped.push(`${volName(d, p)} (locked with BitLocker)`); continue; }
+      if (!p.fs || BAD_FS.has(p.fs) || p.size < 1e9) continue;
       vols.push({ d, p });
     }
   }
-  if (!S.sys.rawDisk) return h('p', { class: 'muted small' }, 'Disk listing is only available on the bootable USB (Linux). Browse folders below.');
-  if (!vols.length) return h('p', { class: 'muted' }, 'No usable drives found. Plug in a USB/external drive and press Refresh.');
-  return h('table', {},
-    h('tr', {}, h('th', {}, 'Drive'), h('th', {}, 'Filesystem'), h('th', { class: 'r' }, 'Size'), h('th', {}, '')),
-    vols.map(({ d, p }) => {
-      const mp = (p.mountpoints || [])[0];
-      const btn = mp
-        ? h('button', { class: 'small', onclick: () => onOpen(mp) }, 'Open')
-        : h('button', { class: 'small', onclick: async (ev) => {
-            ev.target.disabled = true; ev.target.textContent = 'Mounting…';
-            try { const r = await api('mount', { device: p.path }); await loadDisks(); onOpen(r.mountpoint); }
-            catch (e) { alert(e.message); await loadDisks(); }
-          } }, 'Mount');
-      return h('tr', {},
-        h('td', {}, h('div', {}, diskTitle(d)), h('div', { class: 'muted small mono' }, p.path + (mp ? ' → ' + mp : ''))),
-        h('td', {}, (p.fs || '').toUpperCase(), p.label ? h('div', { class: 'muted small' }, p.label) : null),
-        h('td', { class: 'r' }, fmtBytes(p.size)),
-        h('td', { class: 'r' }, btn));
-    }));
+  return { vols, skipped };
 }
 
-// File browser. mode 'dir' reports the current folder; mode 'image' reports a picked .bci file.
-function fileBrowser(key, mode, onPick) {
+// Drive cards with free space. need: bytes a backup needs (0: just browsing).
+function driveCards(vols, selected, need, onPick) {
+  return h('div', { class: 'cards' }, vols.map(({ d, p }) => {
+    const sp = spaceOf(p);
+    let fit = null;
+    if (sp && need) {
+      fit = sp.free >= need ? h('span', { class: 'ok' }, 'Fits')
+        : sp.free >= need / 2 ? h('span', { class: 'warn' }, 'May not fit')
+          : h('span', { class: 'error' }, 'Too small');
+    }
+    const sel = selected === p.path;
+    return h('div', { class: 'card' + (sel ? ' sel' : ''), onclick: () => onPick(d, p) },
+      h('div', { class: 'title' }, h('span', {}, volName(d, p)), sel ? h('span', { class: 'ok' }, '✓') : null),
+      h('div', { class: 'sub' }, [p.label ? d.model || d.name : null, d.transport ? d.transport.toUpperCase() : null, fsName(p.fs)].filter(Boolean).join(' · ')),
+      sp ? h('div', { class: 'space' }, h('div', { style: `width:${Math.min(100, Math.round((sp.used / sp.total) * 100))}%` })) : null,
+      h('div', { class: 'sub' }, fit, fit ? ' · ' : '',
+        sp ? `${fmtBytes(sp.free)} free of ${fmtBytes(sp.total)}`
+          : `${fmtBytes(p.size)} · ` + (S.spaceLoaded ? 'free space shown once chosen' : 'measuring free space…')));
+  }));
+}
+
+// "Backup drive › IMAGen › Laptop" for a folder inside a drive.
+function crumbText(root, rootName, dir) {
+  const rel = dir && dir.startsWith(root) ? dir.slice(root.length).split(/[\\/]/).filter(Boolean) : [];
+  return [rootName, ...rel].join(' › ');
+}
+
+// Folder browser inside one drive (root, shown as rootName). mode 'dir':
+// "Use this folder" reports the folder; mode 'image': clicking an image
+// reports it. Without a root (not on the boot USB) it shows full paths.
+function fileBrowser(key, mode, root, rootName, onPick) {
   const st = (S.browse[key] = S.browse[key] || { path: null, data: null, err: null, loading: false });
-  const box = h('div', { class: 'browser' });
   const go = async (path) => {
-    st.loading = true;
-    try {
-      st.data = await api('browse?path=' + enc(path || ''));
-      st.path = st.data.path; st.err = null;
-      if (mode === 'dir') onPick(st.path);
-    } catch (e) { st.err = e.message; }
+    st.loading = true; st.path = path;
+    try { st.data = await api('browse?path=' + enc(path || '')); st.path = st.data.path; st.err = null; }
+    catch (e) { st.err = e.message; }
     st.loading = false;
     render();
   };
   st.go = go;
-  if (!st.data && !st.loading && !st.err) { go(st.path); }
+  if (!st.data && !st.loading && !st.err) go(st.path || root || '');
   const d = st.data;
-  box.append(h('div', { class: 'path' },
-    h('button', { class: 'small', disabled: !d || !d.parent, onclick: () => go(d.parent) }, '↑ Up'),
-    h('input', { type: 'text', class: 'p mono', value: d ? d.path : '', title: 'Type a folder and press Enter',
-                 onkeydown: (e) => { if (e.key === 'Enter') go(e.target.value.trim()); } }),
+  const sep = (d && d.sep) || '/';
+  const crumbs = [];
+  if (root) {
+    crumbs.push(h('button', { class: 'crumb', onclick: () => go(root) }, rootName));
+    const rel = d && d.path.startsWith(root) ? d.path.slice(root.length).split(/[\\/]/).filter(Boolean) : [];
+    rel.forEach((name, i) => {
+      const target = root.replace(/[\\/]$/, '') + sep + rel.slice(0, i + 1).join(sep);
+      crumbs.push(h('span', { class: 'muted' }, '›'), h('button', { class: 'crumb', onclick: () => go(target) }, name));
+    });
+  } else {
+    crumbs.push(h('button', { class: 'small', disabled: !d || !d.parent, onclick: () => go(d.parent) }, '↑ Up'),
+      h('span', { class: 'mono' }, d ? d.path : ''));
+  }
+  const head = h('div', { class: 'path' }, h('div', { class: 'crumbs' }, crumbs),
     mode === 'dir' && d ? h('button', { class: 'small', onclick: async () => {
-      const name = prompt('New folder name:');
+      const name = (prompt('New folder name:') || '').trim();
       if (!name) return;
-      const p = d.path.replace(/[\\/]$/, '') + d.sep + name;
+      const p = d.path.replace(/[\\/]$/, '') + sep + name;
       try { await api('mkdir', { path: p }); go(p); } catch (e) { alert(e.message); }
     } }, '+ New folder') : null,
-    h('button', { class: 'small', onclick: () => go(st.path) }, 'Refresh')));
+    mode === 'dir' && d ? h('button', { class: 'small primary', onclick: () => onPick(d.path) }, 'Use this folder') : null);
   const ul = h('ul');
   if (st.err) ul.append(h('li', { class: 'empty error' }, st.err));
   else if (!d) ul.append(h('li', { class: 'empty' }, h('span', { class: 'spinner' }), 'Loading…'));
   else {
-    const ents = d.entries.filter((e) => e.dir || mode === 'image' || e.image);
-    if (!ents.length) ul.append(h('li', { class: 'empty' }, mode === 'image' ? 'No .bci images in this folder.' : 'Empty folder.'));
-    for (const e of ents) {
+    if (!d.entries.length) ul.append(h('li', { class: 'empty' }, mode === 'image' ? 'No images in this folder.' : 'Empty folder.'));
+    for (const e of d.entries) {
       const sel = mode === 'image' && S[key] && S[key].image === e.path;
-      ul.append(h('li', { class: sel ? 'sel' : '', onclick: () => (e.dir ? go(e.path) : mode === 'image' ? onPick(e.path) : null) },
-        h('span', {}, e.dir ? '📁' : '💾'),
+      const click = e.dir ? () => go(e.path) : mode === 'image' ? () => onPick(e.path) : null;
+      ul.append(h('li', { class: (sel ? 'sel' : '') + (click ? '' : ' info'), onclick: click },
+        e.dir ? h('img', { class: 'icon', src: FOLDER_ICON, alt: '' }) : h('span', { class: 'icon tag' }, 'img'),
         h('span', { class: 'n' }, e.name),
         h('span', { class: 'muted small' }, e.dir ? '' : fmtBytes(e.size) + '  ·  ' + e.mod)));
     }
   }
-  box.append(ul);
-  return box;
+  return h('div', { class: 'browser' }, head, ul);
 }
 
 function openIn(key, path) {
@@ -182,9 +260,7 @@ function step(n, title, locked, ...body) {
   return h('section', { class: 'step' + (locked ? ' locked' : '') }, h('h2', {}, h('span', { class: 'num' }, n), title), ...body);
 }
 
-function refreshBtn() {
-  return h('button', { class: 'small', onclick: () => { S.disksLoaded = false; render(); loadDisks(); } }, 'Refresh');
-}
+function refreshBtn() { return h('button', { class: 'small', onclick: rescan }, 'Refresh'); }
 
 function manualPath(label, value, onChange) {
   return h('div', { class: 'row', style: 'margin-top:10px' },
@@ -286,47 +362,149 @@ function viewBackup() {
     b.planErr ? h('div', { class: 'notice danger' }, b.planErr) : null,
     b.plan ? planTable(b.plan) : null);
 
-  const s3 = step(3, 'Where to save the image', !b.plan,
-    h('div', { class: 'row', style: 'margin-bottom:6px' }, h('span', { class: 'grow muted small' },
-      'Pick a drive other than the one being backed up, then a folder.'), refreshBtn()),
-    volumeList(b.source, (mp) => openIn('backup', mp)),
-    fileBrowser('backup', 'dir', (dir) => { if (b.dir !== dir) { b.dir = dir; render(); } }),
-    h('div', { class: 'grid2', style: 'margin-top:14px' },
-      h('div', {}, h('div', { class: 'muted small' }, 'Image name'),
-        h('div', { class: 'row' }, h('input', { type: 'text', class: 'grow', value: b.name,
-          oninput: (e) => { b.name = e.target.value; b.nameTouched = true; } }), h('span', { class: 'muted' }, '.bci'))),
-      h('div', {}, h('div', { class: 'muted small' }, 'Compression'),
-        h('select', { onchange: (e) => { b.level = +e.target.value; } },
-          [[0, 'None (fastest, largest)'], [1, 'Fast (recommended)'], [6, 'Better (slower)']].map(([v, t]) =>
-            h('option', { value: v, selected: b.level === v }, t))))),
-    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: b.split || onFat,
-      disabled: onFat, onchange: (e) => { b.split = e.target.checked; } }),
-      h('span', {}, 'Split into 4 GB files', h('div', { class: 'muted small' },
-        onFat ? 'Required: the destination is FAT, which cannot hold files over 4 GB.' : 'Use when the destination is FAT32 or for easier copying.'))),
-    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: b.verify, onchange: (e) => { b.verify = e.target.checked; } }),
-      h('span', {}, 'Verify the image after writing', h('div', { class: 'muted small' }, 'Reads the image back and checks every checksum.'))),
-    h('div', { class: 'go' },
-      b.dir ? h('span', { class: 'muted small mono' }, (b.dir.replace(/[\\/]$/, '') + '/' + b.name + '.bci')) : null,
-      h('button', { class: 'primary', disabled: !b.dir || !b.name || !b.plan, onclick: () => startBackup(onFat) }, 'Start backup')));
+  const s3 = step(3, 'Where to save the image', !b.plan, ...destSection(onFat));
 
   return h('div', {}, h('h1', {}, 'Back up a disk'), h('p', { class: 'lead' }, 'Create an image file you can restore to this or another disk.'), s1, s2, s3);
 }
 
+const LEVELS = [[0, 'None (fastest, largest)', 'no compression'], [1, 'Fast (recommended)', 'fast compression'], [6, 'Better (slower)', 'better compression']];
+
+function destSection(onFat) {
+  const b = S.backup;
+  const need = b.plan ? b.plan.dataBytes : 0;
+  const out = [];
+  let sel = null, root = null, rootName = '';
+  if (S.sys.rawDisk) {
+    const { vols, skipped } = driveVolumes(b.source);
+    sel = b.vol ? partOf(b.vol) : null;
+    if (b.vol && (!sel || sel.d.path === b.source)) { b.vol = null; b.dir = null; sel = null; } // unplugged, or now the source
+    root = sel ? visibleMount(sel.p) : null;
+    rootName = sel ? volName(sel.d, sel.p) : '';
+    out.push(h('div', { class: 'row', style: 'margin-bottom:10px' },
+      h('span', { class: 'grow muted small' }, need
+        ? `The image needs up to ${fmtBytes(need)} (usually less after compression). Choose a drive with enough free space.`
+        : 'Choose the drive to save the image on.'),
+      rescanBtn()));
+    out.push(diskErr());
+    if (S.disksLoaded && !vols.length) out.push(h('p', { class: 'muted' }, 'No drive to save on. Plug in a USB or external drive, then press "Look for drives again".'));
+    else out.push(driveCards(vols, b.vol, need, chooseDest));
+    if (skipped.length) out.push(h('p', { class: 'muted small' }, 'Not listed: ' + skipped.join(', ')));
+    if (b.volErr) out.push(h('div', { class: 'notice danger' }, b.volErr));
+    if (b.vol && !b.dir) out.push(h('p', { class: 'muted' }, h('span', { class: 'spinner' }), 'Opening the drive…'));
+  } else {
+    // Not on the boot USB: any folder of this computer.
+    out.push(h('p', { class: 'muted small' }, 'Choose the folder to save the image in.'));
+    if (!b.dir) out.push(fileBrowser('backup', 'dir', null, '', (dir) => setDestDir(dir)));
+  }
+
+  if (b.dir && (root || !S.sys.rawDisk)) {
+    const where = root ? crumbText(root, rootName, b.dir) : b.dir;
+    out.push(h('div', { class: 'folder' },
+      h('img', { class: 'icon big', src: FOLDER_ICON, alt: '' }),
+      h('div', { class: 'grow' }, h('div', { class: 'muted small' }, 'Folder'), h('div', { class: 'fname' }, where),
+        h('div', { class: 'muted small' }, b.dirNote || '')),
+      h('button', { class: 'small', onclick: () => {
+        b.browsing = !b.browsing;
+        if (b.browsing) openIn('backup', b.dirExists ? b.dir : root || b.dir); else render();
+      } }, b.browsing ? 'Cancel' : 'Change folder')));
+    if (b.browsing) out.push(fileBrowser('backup', 'dir', root, rootName, (dir) => { b.browsing = false; setDestDir(dir); }));
+  }
+
+  out.push(h('div', { style: 'margin-top:14px' }, h('div', { class: 'muted small' }, 'Image name'),
+    h('div', { class: 'row' }, h('input', { type: 'text', id: 'imgname', class: 'grow', value: b.name,
+      oninput: (e) => { b.name = e.target.value; b.nameTouched = true; renderSoon(); } }), h('span', { class: 'muted' }, '.bci'))));
+
+  const split = b.split || onFat;
+  const optText = [LEVELS.find((l) => l[0] === b.level)[2], split ? 'split into 4 GB files' : null,
+    b.verify ? 'verify after writing' : 'no check after writing'].filter(Boolean).join(', ');
+  out.push(h('details', { class: 'opts', open: b.optsOpen, ontoggle: (e) => { b.optsOpen = e.target.open; } },
+    h('summary', {}, 'Options: ' + optText),
+    h('div', { style: 'max-width:360px' }, h('div', { class: 'muted small' }, 'Compression'),
+      h('select', { onchange: (e) => { b.level = +e.target.value; render(); } },
+        LEVELS.map(([v, t]) => h('option', { value: v, selected: b.level === v }, t)))),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: split, disabled: onFat, onchange: (e) => { b.split = e.target.checked; render(); } }),
+      h('span', {}, 'Split into 4 GB files', h('div', { class: 'muted small' },
+        onFat ? 'Required: this drive is FAT, which cannot hold files over 4 GB.' : 'Use when the image will be copied to a FAT32 drive.'))),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: b.verify, onchange: (e) => { b.verify = e.target.checked; render(); } }),
+      h('span', {}, 'Verify the image after writing', h('div', { class: 'muted small' }, 'Reads the image back and checks every checksum.')))));
+
+  const sp = sel ? spaceOf(sel.p) : null;
+  const left = sp && need ? sp.free - need : null;
+  const ready = b.dir && b.name.trim() && b.plan;
+  out.push(h('div', { class: 'go' },
+    b.dir ? h('div', { class: 'grow' },
+      h('div', {}, 'Saves to ', h('b', {}, (root ? crumbText(root, rootName, b.dir) : b.dir) + ' › ' + b.name.trim().replace(/\.bci$/i, '') + '.bci')),
+      need ? h('div', { class: 'muted small' }, `Up to ${fmtBytes(need)}` +
+        (left == null ? '' : left >= 0 ? ` · about ${fmtBytes(left)} will be left free` : ' · may not fit on this drive')) : null)
+      : h('div', { class: 'grow muted small' }, S.sys.rawDisk ? 'Choose a drive to save on.' : 'Choose a folder to save in.'),
+    h('button', { class: 'primary', disabled: !ready, onclick: () => startBackup(onFat) }, 'Start backup')));
+  return out;
+}
+
+// Typing the name updates the summary line without losing focus.
+let renderTimer = 0;
+function renderSoon() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => {
+    const el = document.activeElement, pos = el && el.selectionStart;
+    render();
+    const again = document.getElementById('imgname');
+    if (el && el.id === 'imgname' && again) { again.focus(); again.setSelectionRange(pos, pos); }
+  }, 250);
+}
+
+async function chooseDest(d, p) {
+  const b = S.backup;
+  b.vol = p.path; b.volErr = null; b.browsing = false; b.dir = null;
+  render();
+  try {
+    const mp = await openVolume(p, false);
+    loadSpace();
+    await setDestDir(mp.replace(/\/$/, '') + '/' + FOLDER);
+  } catch (e) {
+    b.vol = null;
+    b.volErr = `Could not open ${volName(d, p)}: ${e.message}`;
+    render();
+  }
+}
+
+// Sets the destination folder and notes whether it exists yet.
+async function setDestDir(dir) {
+  const b = S.backup;
+  b.dir = dir; b.dirNote = ''; b.dirExists = false;
+  render();
+  try {
+    const r = await api('browse?path=' + enc(dir));
+    const n = r.entries.filter((e) => e.image).length;
+    b.dirExists = true;
+    b.dirNote = n ? `${n} earlier image${n > 1 ? 's' : ''} here` : 'Empty folder';
+  } catch (e) { b.dirNote = 'Created when the backup starts'; }
+  if (b.dir === dir) render();
+}
+
 async function startBackup(onFat) {
   const b = S.backup;
-  const sep = (S.browse.backup && S.browse.backup.data && S.browse.backup.data.sep) || '/';
-  const dest = b.dir.replace(/[\\/]$/, '') + sep + b.name.replace(/\.bci$/i, '') + '.bci';
+  const sep = b.dir.includes('\\') && !b.dir.includes('/') ? '\\' : '/';
+  const dest = b.dir.replace(/[\\/]$/, '') + sep + b.name.trim().replace(/\.bci$/i, '') + '.bci';
+  const sel = b.vol ? partOf(b.vol) : null;
+  const root = sel ? visibleMount(sel.p) : null;
+  const where = root ? crumbText(root, volName(sel.d, sel.p), b.dir) : b.dir;
   const ok = await modal('Start backup?', h('div', {},
-    h('p', {}, 'Source: ', h('b', {}, b.source), srcLabel(b.source)),
-    h('p', {}, 'Image: ', h('span', { class: 'mono' }, dest)),
-    h('p', {}, 'Mode: ', b.mode === 'used' ? 'used data only' : 'every sector', ' — about ', h('b', {}, fmtBytes(b.plan.dataBytes)), ' to read.'),
-    h('p', { class: 'muted small' }, 'The source disk is only read, never written.')), { yes: 'Start backup' });
+    h('p', {}, 'Disk: ', h('b', {}, srcName(b.source))),
+    h('p', {}, 'Saves to: ', h('b', {}, where + ' › ' + dest.split(/[\\/]/).pop())),
+    h('p', {}, b.mode === 'used' ? 'Used data only' : 'Every sector', ', about ', h('b', {}, fmtBytes(b.plan.dataBytes)), ' to read.'),
+    h('p', { class: 'muted small' }, 'The disk is only read, never written.')), { yes: 'Start backup' });
   if (!ok) return;
   try {
     await api('backup', { source: b.source, dest, mode: b.mode, level: b.level,
       splitSize: (b.split || onFat) ? 4000 * 1024 * 1024 : 0, verify: b.verify });
     pollJob();
   } catch (e) { alert(e.message); }
+}
+
+function srcName(path) {
+  const d = S.disks.find((x) => x.path === path);
+  return d ? `${diskTitle(d)} (${fmtBytes(d.size)})` : path;
 }
 
 function srcLabel(path) {
@@ -358,60 +536,157 @@ function imageSummary(info) {
         h('td', { class: 'r' }, fmtBytes(p.size))))) : null);
 }
 
+// ---------- choosing an image (restore and verify) ----------
+async function loadImages() {
+  S.imagesLoading = true;
+  try { S.images = (await api('images')).images || []; } catch (e) { S.images = []; }
+  S.imagesLoading = false;
+  render();
+}
+function needImages() {
+  if (S.sys.rawDisk && S.disksLoaded && S.images == null && !S.imagesLoading) { S.imagesLoading = true; setTimeout(loadImages); }
+}
+function imgDate(m) { return new Date(m.created).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
+function imgTitle(m) { return `${m.source.model || m.source.path.split(/[\\/]/).pop()} · ${imgDate(m)}`; }
+function imgWhere(img) {
+  const pd = partOf(img.device);
+  const drive = pd ? volName(pd.d, pd.p) : img.label || img.disk || img.device;
+  return [drive, ...img.rel.split('/').slice(0, -1)].join(' › ');
+}
+
+async function pickFound(sec, img) {
+  sec.pick = img.device + '|' + img.rel; sec.infoErr = null;
+  render();
+  try {
+    let path = img.path;
+    if (!path) {
+      const pd = partOf(img.device);
+      const mp = await openVolume(pd ? pd.p : { path: img.device }, true);
+      path = mp.replace(/\/$/, '') + '/' + img.rel;
+    }
+    loadImageInfo(sec, path);
+  } catch (e) { sec.infoErr = 'Could not open the drive: ' + e.message; render(); }
+}
+
+// Step body: images found on the drives, or browse for one.
+function imageChooser(sec, key) {
+  const out = [];
+  if (S.sys.rawDisk) {
+    needImages();
+    out.push(h('div', { class: 'row', style: 'margin-bottom:8px' },
+      h('span', { class: 'grow muted small' }, `Images found on your drives, in ${FOLDER} folders and at the top of each drive.`), rescanBtn()));
+    if (S.images == null) out.push(h('p', { class: 'muted' }, h('span', { class: 'spinner' }), 'Looking for images…'));
+    else if (!S.images.length) out.push(h('p', { class: 'muted' }, 'No images found. Plug in the drive that holds your image and press "Look for drives again", or browse for it.'));
+    else {
+      out.push(h('div', { class: 'imglist' }, S.images.map((img) => {
+        const m = img.meta;
+        const sel = sec.pick === img.device + '|' + img.rel;
+        return h('div', { class: 'imgrow' + (sel ? ' sel' : ''), onclick: () => pickFound(sec, img) },
+          h('div', { class: 'grow' }, h('div', { class: 'title' }, imgTitle(m)),
+            h('div', { class: 'muted small' }, `${imgWhere(img)} · ${fmtBytes(img.size)} image of a ${fmtBytes(m.source.size)} disk · ${m.mode === 'used' ? 'used data only' : 'every sector'}`)),
+          sel ? h('span', { class: 'ok' }, '✓') : null);
+      })));
+    }
+    out.push(h('button', { class: 'small', style: 'margin-top:10px', onclick: () => { sec.browsing = !sec.browsing; render(); } },
+      sec.browsing ? 'Hide' : 'Browse for another image'));
+    if (sec.browsing) {
+      const { vols } = driveVolumes(null);
+      out.push(h('p', { class: 'muted small' }, 'Choose the drive that holds the image, then the image.'));
+      out.push(driveCards(vols, sec.browseVol, 0, async (d, p) => {
+        sec.browseVol = p.path; sec.browseErr = null; sec.browseRoot = null;
+        render();
+        try {
+          const mp = await openVolume(p, true);
+          sec.browseRoot = mp; sec.browseName = volName(d, p);
+          const st = S.browse[key];
+          if (st) { st.data = null; st.err = null; st.path = null; }
+          render();
+        } catch (e) { sec.browseErr = `Could not open ${volName(d, p)}: ${e.message}`; render(); }
+      }));
+      if (sec.browseErr) out.push(h('div', { class: 'notice danger' }, sec.browseErr));
+      if (sec.browseRoot) out.push(fileBrowser(key, 'image', sec.browseRoot, sec.browseName, (p) => { sec.pick = null; loadImageInfo(sec, p); }));
+    }
+  } else {
+    out.push(h('p', { class: 'muted small' }, 'Open the folder that holds your .bci image.'));
+    out.push(fileBrowser(key, 'image', null, '', (p) => loadImageInfo(sec, p)));
+  }
+  if (sec.infoErr) out.push(h('div', { class: 'notice danger' }, sec.infoErr));
+  if ((sec.image || sec.pick) && !sec.info && !sec.infoErr) out.push(h('p', {}, h('span', { class: 'spinner' }), 'Reading image…'));
+  if (sec.info) out.push(imageSummary(sec.info));
+  return out;
+}
+
+// ---------- restore ----------
 function viewRestore() {
   const r = S.restore;
   const m = r.info && r.info.meta;
   const imgVol = r.image ? fsOfDir(r.image) : null;
+  const imgDisk = imgVol ? imgVol.d.path : r.pick ? (partOf(r.pick.split('|')[0]) || { d: {} }).d.path : null;
 
-  const s1 = step(1, 'Choose the image', false,
-    h('div', { class: 'row', style: 'margin-bottom:6px' }, h('span', { class: 'grow muted small' }, 'Open the drive that holds your .bci image.'), refreshBtn()),
-    volumeList(null, (mp) => openIn('restore', mp)),
-    fileBrowser('restore', 'image', (p) => loadImageInfo(r, p)),
-    r.infoErr ? h('div', { class: 'notice danger' }, r.infoErr) : null,
-    r.image && !r.info && !r.infoErr ? h('p', {}, h('span', { class: 'spinner' }), 'Reading image…') : null,
-    r.info ? imageSummary(r.info) : null);
+  const s1 = step(1, 'Choose the image', false, ...imageChooser(r, 'restore'));
 
-  const s2 = step(2, 'Choose the target disk', !m,
-    h('div', { class: 'notice danger' }, 'Everything on the target disk will be overwritten.'),
+  const skipped = [];
+  const cards = [];
+  for (const d of S.disks) {
+    if (d.bootMedia) { skipped.push(`${diskTitle(d)} (this USB stick)`); continue; }
+    if (d.path === imgDisk) { skipped.push(`${diskTitle(d)} (holds the image)`); continue; }
+    const small = m && d.size < m.source.size;
+    const same = m && m.source.serial && d.serial === m.source.serial;
+    const larger = m && d.size > m.source.size;
+    const sel = r.target === d.path;
+    if (sel && small) r.target = null;
+    cards.push(h('div', { class: 'card' + (sel ? ' sel danger' : '') + (small ? ' disabled' : ''),
+      onclick: small ? null : () => { r.target = d.path; render(); } },
+      h('div', { class: 'title' }, h('span', {}, diskTitle(d)), h('span', {}, fmtBytes(d.size))),
+      same ? h('div', { style: 'margin-top:6px' }, h('span', { class: 'tag blue', style: 'margin:0' }, 'The disk this image was taken from')) : null,
+      h('div', { class: 'sub' }, 'Now holds: ' + holds(d)),
+      larger ? h('div', { class: 'sub' }, `Larger than the original; the extra ${fmtBytes(d.size - m.source.size)} stays unused`) : null,
+      small ? h('div', { class: 'sub warn' }, `Too small: needs at least ${fmtBytes(m.source.size)}`) : null));
+  }
+  if (r.target && !S.disks.some((d) => d.path === r.target && d.path !== imgDisk && !d.bootMedia)) r.target = null;
+  const s2 = step(2, 'Choose the disk to overwrite', !m,
     diskErr(),
-    h('div', { class: 'cards' }, S.disks.map((d) => {
-      let reason = null;
-      if (d.bootMedia) reason = 'This is the IMAGen USB stick';
-      else if (imgVol && imgVol.d.path === d.path) reason = 'The image is stored on this disk';
-      else if (m && d.size < m.source.size) reason = `Too small: needs at least ${fmtBytes(m.source.size)}`;
-      const mounted = (d.partitions || []).some((p) => p.mountpoints && p.mountpoints.length);
-      if (!reason && mounted) reason = 'Has mounted partitions — unmount them first';
-      const same = m && m.source.serial && d.serial === m.source.serial;
-      return diskCard(d, { selected: r.target === d.path, disabled: !!reason, reason,
-        extraTags: same ? h('span', { class: 'tag blue' }, 'original disk') : null,
-        onClick: () => { r.target = d.path; render(); } });
-    })),
+    h('div', { class: 'cards' }, cards),
+    skipped.length ? h('p', { class: 'muted small' }, 'Not listed: ' + skipped.join(', ')) : null,
     !S.sys.rawDisk || S.disksErr ? manualPath('Target:', r.target, (v) => { r.target = v; render(); }) : null);
 
   const tgt = S.disks.find((d) => d.path === r.target);
   const larger = m && tgt && tgt.size > m.source.size;
-  const s3 = step(3, 'Options', !m || !r.target,
-    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.verifyFirst, onchange: (e) => { r.verifyFirst = e.target.checked; } }),
-      h('span', {}, 'Verify the image before writing', h('div', { class: 'muted small' }, 'Optional. Reads the whole image first; if it is damaged, the target is not touched.'))),
-    m && m.table && m.table.scheme === 'gpt' ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.fixGPT, onchange: (e) => { r.fixGPT = e.target.checked; } }),
-      h('span', {}, 'Move the GPT backup table to the end of a larger disk', h('div', { class: 'muted small' },
-        (larger ? 'The target is larger than the source. ' : '') + 'Only the header location changes; disk and partition GUIDs stay identical.'))) : null,
-    m && m.mode === 'used' ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.zeroFill, onchange: (e) => { r.zeroFill = e.target.checked; } }),
-      h('span', {}, 'Erase free space on the target (write zeros)', h('div', { class: 'muted small' }, 'Slower. Removes leftover data from the target disk\'s previous contents.'))) : null,
-    larger ? h('div', { class: 'notice info' }, `The target is ${fmtBytes(tgt.size - m.source.size)} larger. Partitions keep their original size; you can extend them later in Windows Disk Management or GParted.`) : null,
-    h('div', { class: 'go' }, h('button', { class: 'primary', disabled: !m || !r.target, onclick: startRestore }, 'Restore')));
+  const optText = [r.verifyFirst ? 'check the image first' : 'no check first', r.zeroFill ? 'erase leftover data' : 'keep leftover data'].filter(Boolean).join(', ');
+  const s3 = step(3, 'Check and restore', !m || !r.target,
+    m && r.target ? h('div', { class: 'fromto' },
+      h('div', { class: 'box' }, h('div', { class: 'muted small' }, 'Image'), h('div', {}, imgTitle(m)),
+        h('div', { class: 'muted small' }, fmtBytes(m.dataBytes) + ' of disk data')),
+      h('div', { class: 'arrow' }, '→'),
+      h('div', { class: 'box danger' }, h('div', { class: 'small' }, 'Will be erased'),
+        h('div', {}, tgt ? `${diskTitle(tgt)}, ${fmtBytes(tgt.size)}` : r.target),
+        tgt ? h('div', { class: 'small' }, holds(tgt)) : null)) : null,
+    h('details', { class: 'opts', open: r.optsOpen, ontoggle: (e) => { r.optsOpen = e.target.open; } },
+      h('summary', {}, 'Options: ' + optText),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.verifyFirst, onchange: (e) => { r.verifyFirst = e.target.checked; render(); } }),
+        h('span', {}, 'Check the image first', h('div', { class: 'muted small' },
+          'Optional. Reads the whole image before writing; if it is damaged, the disk is not touched. Without it, a damaged image stops the restore partway.'))),
+      m && m.mode === 'used' ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.zeroFill, onchange: (e) => { r.zeroFill = e.target.checked; render(); } }),
+        h('span', {}, 'Erase leftover data', h('div', { class: 'muted small' }, 'Slower. Overwrites the free space with zeros, so nothing of the disk\'s previous contents remains.'))) : null),
+    larger ? h('div', { class: 'notice info' }, `The disk is ${fmtBytes(tgt.size - m.source.size)} larger than the original. Partitions keep their size; you can extend them later in Windows Disk Management or GParted.`) : null,
+    h('div', { class: 'go' }, h('button', { class: 'danger', disabled: !m || !r.target, onclick: startRestore }, 'Erase and restore')));
 
-  return h('div', {}, h('h1', {}, 'Restore an image'), h('p', { class: 'lead' }, 'Write an image back to a disk. The result is a bit-exact copy of the original disk, including its disk signature and GUIDs.'), s1, s2, s3);
+  return h('div', {}, h('h1', {}, 'Restore an image'), h('p', { class: 'lead' }, 'Write an image back to a disk. The disk becomes an exact copy of the one the image was taken from.'), s1, s2, s3);
 }
 
 async function startRestore() {
   const r = S.restore;
-  const ok = await modal('Overwrite ' + r.target + '?',
-    h('p', {}, 'All data on ', h('b', {}, r.target), srcLabel(r.target), ' will be permanently replaced by the image.'),
+  const m = r.info.meta;
+  const tgt = S.disks.find((d) => d.path === r.target);
+  const name = tgt ? `${diskTitle(tgt)} (${fmtBytes(tgt.size)})` : r.target;
+  const ok = await modal(`Erase ${tgt ? diskTitle(tgt) : r.target}?`, h('div', {},
+    h('p', {}, 'Everything on ', h('b', {}, name), ' will be permanently replaced by the image ', h('b', {}, imgTitle(m)), '.'),
+    tgt ? h('p', {}, 'It now holds: ' + holds(tgt) + '.') : null,
+    h('p', { class: 'muted small' }, 'This cannot be undone.')),
     { yes: 'Erase and restore', danger: true });
   if (!ok) return;
   try {
-    await api('restore', { image: r.image, target: r.target, fixGPT: r.fixGPT, zeroFill: r.zeroFill, verifyFirst: r.verifyFirst });
+    await api('restore', { image: r.image, target: r.target, fixGPT: true, zeroFill: r.zeroFill, verifyFirst: r.verifyFirst });
     pollJob();
   } catch (e) { alert(e.message); }
 }
@@ -420,12 +695,7 @@ async function startRestore() {
 function viewVerify() {
   const v = S.verify;
   return h('div', {}, h('h1', {}, 'Verify an image'), h('p', { class: 'lead' }, 'Read an image end to end and check every checksum, without writing anything.'),
-    step(1, 'Choose the image', false,
-      h('div', { class: 'row', style: 'margin-bottom:6px' }, h('span', { class: 'grow' }), refreshBtn()),
-      volumeList(null, (mp) => openIn('verify', mp)),
-      fileBrowser('verify', 'image', (p) => loadImageInfo(v, p)),
-      v.infoErr ? h('div', { class: 'notice danger' }, v.infoErr) : null,
-      v.info ? imageSummary(v.info) : null,
+    step(1, 'Choose the image', false, ...imageChooser(v, 'verify'),
       h('div', { class: 'go' }, h('button', { class: 'primary', disabled: !v.info, onclick: async () => {
         try { await api('verify', { image: v.image }); pollJob(); } catch (e) { alert(e.message); }
       } }, 'Verify image'))));
@@ -587,7 +857,7 @@ function showJob(r) {
   if (atBottom) log.scrollTop = log.scrollHeight;
   $('#job-cancel').classList.toggle('hidden', j.state !== 'running');
   $('#job-close').classList.toggle('hidden', j.state === 'running');
-  $('#job-close').onclick = () => { S.dismissed = j.id; ov.classList.add('hidden'); loadDisks(); Object.values(S.browse).forEach((b) => { b.data = null; }); render(); };
+  $('#job-close').onclick = () => { S.dismissed = j.id; ov.classList.add('hidden'); rescan(); };
 }
 
 $('#job-cancel').onclick = async () => {

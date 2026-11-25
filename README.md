@@ -81,9 +81,15 @@ external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
    need to disable Secure Boot.
 3. The IMAGen interface opens full screen:
    * **Back up**: pick the disk, choose *Used data only* or *Every sector*,
-     mount a destination drive, pick a folder, then Start.
-   * **Restore**: open the drive holding the image, pick the `.bci`, pick the
-     target disk, then click **Erase and restore** to confirm.
+     then choose the drive to save on. Each drive shows its free space and
+     whether the image fits. The image goes into an **IMAGen** folder at the
+     top of that drive (created when the backup starts); **Change folder**
+     picks another one. Then click **Start backup**.
+   * **Restore**: IMAGen lists the images it finds on your drives (in their
+     IMAGen folders and at the top of each drive); pick one, or **Browse for
+     another image**. Pick the disk to overwrite, check the image → disk
+     summary, then click **Erase and restore**. Checking the image first is
+     optional (off by default).
    * **Verify**: check an image without writing anything.
    * **Accounts**: lists the user accounts of every Windows installation on the
      PC: local, Microsoft, work or school (Azure AD) and domain accounts, with

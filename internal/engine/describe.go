@@ -40,3 +40,32 @@ func FindDisk(path string) *disk.Info {
 	}
 	return nil
 }
+
+// PartitionSpace reports how much of a partition's filesystem is used and
+// its total size, or -1 for both when that cannot be told. A mounted
+// filesystem is asked directly; otherwise its allocation bitmap is read
+// (NTFS, ext2/3/4, FAT), without mounting it.
+func PartitionSpace(p disk.PartInfo) (used, total int64) {
+	for _, mp := range p.Mountpoints {
+		if mp == "[swap]" {
+			continue
+		}
+		if free, tot, ok := disk.FreeSpace(mp); ok {
+			return tot - free, tot
+		}
+	}
+	dev, err := disk.Open(p.Path)
+	if err != nil {
+		return -1, -1
+	}
+	defer dev.Close()
+	r := fs.Detect(dev, dev.Size)
+	if r == nil || r.Used == nil {
+		return -1, -1
+	}
+	total = r.FSSize
+	if total <= 0 {
+		total = dev.Size
+	}
+	return r.UsedBytes(), total
+}

@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -58,6 +59,8 @@ func Serve(addr string) error {
 		s.system(w, r)
 	})
 	mux.HandleFunc("/api/disks", s.disks)
+	mux.HandleFunc("/api/space", s.space)
+	mux.HandleFunc("/api/images", s.images)
 	mux.HandleFunc("/api/analyze", s.analyze)
 	mux.HandleFunc("/api/browse", s.browse)
 	mux.HandleFunc("/api/image", s.imageInfo)
@@ -225,17 +228,35 @@ func (s *server) mkdir(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) mount(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Device string }
+	var req struct {
+		Device string
+		// ReadOnlyOK allows a read-only mount when a writable one fails
+		// (enough for opening an image).
+		ReadOnlyOK bool
+	}
 	if err := readJSON(r, &req); err != nil || !strings.HasPrefix(req.Device, "/dev/") {
 		writeErr(w, 400, errors.New("bad device"))
 		return
 	}
-	mp, err := disk.Mount(req.Device)
+	for _, mp := range disk.Mounts()[req.Device] {
+		if mp != "[swap]" && !strings.Contains(mp, "/.ro-") {
+			writeJSON(w, map[string]any{"mountpoint": mp})
+			return
+		}
+	}
+	var mp string
+	var ro bool
+	var err error
+	if req.ReadOnlyOK {
+		mp, ro, err = disk.MountForReading(req.Device)
+	} else {
+		mp, err = disk.Mount(req.Device)
+	}
 	if err != nil {
 		writeErr(w, 400, err)
 		return
 	}
-	writeJSON(w, map[string]any{"mountpoint": mp})
+	writeJSON(w, map[string]any{"mountpoint": mp, "readOnly": ro})
 }
 
 func (s *server) unmount(w http.ResponseWriter, r *http.Request) {
@@ -309,6 +330,11 @@ func (s *server) backup(w http.ResponseWriter, r *http.Request) {
 		o.Model, o.Serial = d.Model, d.Serial
 	}
 	s.start(w, "backup", "Backup of "+o.Source+" → "+o.Dest, func(ctx context.Context, p *engine.Progress) error {
+		// The destination folder (normally the drive's IMAGen folder) is
+		// created when the backup starts.
+		if err := os.MkdirAll(filepath.Dir(o.Dest), 0o755); err != nil {
+			return err
+		}
 		return engine.Backup(ctx, o, p)
 	})
 }
@@ -320,6 +346,9 @@ func (s *server) restore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.start(w, "restore", "Restore of "+o.Image+" → "+o.Target, func(ctx context.Context, p *engine.Progress) error {
+		if err := releaseDisk(o.Target); err != nil {
+			return fmt.Errorf("could not release the target disk: %w", err)
+		}
 		return engine.Restore(ctx, o, p)
 	})
 }

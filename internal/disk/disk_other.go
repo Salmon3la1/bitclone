@@ -28,3 +28,6 @@ func MountRO(dev string) (string, func(), error) {
 	return "", nil, errUnsupported
 }
 func Power(action string) error { return errUnsupported }
+
+func FreeSpace(mp string) (free, total int64, ok bool) { return 0, 0, false }
+func MountForReading(dev string) (string, bool, error) { return "", false, errUnsupported }
