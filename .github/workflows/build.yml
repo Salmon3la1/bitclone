@@ -84,7 +84,7 @@ jobs:
       - name: Boot test cleanup
         if: always()
         run: |
-          chmod -R u+w dist/boot-test 2>/dev/null; rm -rf dist/boot-test
+          if [ -d dist/boot-test ]; then chmod -R u+w dist/boot-test; rm -rf dist/boot-test; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
