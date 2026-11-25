@@ -1,4 +1,4 @@
-# ImaGen
+# IMAGen
 
 Sector-exact disk imaging that boots from a USB stick. Back up a whole disk to
 an image file, then restore it to the same or another disk. The restored disk
@@ -23,7 +23,7 @@ behaves like the original, including its **disk signature**.
 ### About "disk signature"
 
 Everything that identifies a disk **on the disk itself** is copied exactly,
-because it lives in sectors ImaGen always copies verbatim:
+because it lives in sectors IMAGen always copies verbatim:
 
 * MBR disk signature (offset 0x1B8), which Windows uses to map drive letters and BCD boot entries
 * GPT disk GUID and every partition's unique GUID
@@ -38,7 +38,7 @@ burned into the drive's firmware. No imaging tool can change them.
 
 ## How "used data only" works
 
-ImaGen reads each filesystem's own allocation map:
+IMAGen reads each filesystem's own allocation map:
 
 * **NTFS**: the `$Bitmap` metadata file (MFT record 6)
 * **ext2/3/4**: block-group bitmaps (including `flex_bg` and uninitialised groups)
@@ -79,7 +79,7 @@ external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
 1. Plug the stick into the PC whose disk you want to image.
 2. Boot the PC from the stick (boot menu: usually F12, F11, F8 or Esc). It works with both UEFI and legacy BIOS. You may
    need to disable Secure Boot.
-3. The ImaGen interface opens full screen:
+3. The IMAGen interface opens full screen:
    * **Back up**: pick the disk, choose *Used data only* or *Every sector*,
      mount a destination drive, pick a folder, then Start.
    * **Restore**: open the drive holding the image, pick the `.bci`, pick the

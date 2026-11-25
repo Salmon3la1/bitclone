@@ -26,7 +26,7 @@ type USBDisk struct {
 	Labels   []string `json:"labels"`
 	Large    bool     `json:"large"` // probably an external hard drive, not a stick
 	// Volumes found by reading the disk itself: what is on a stick that
-	// Windows gives no drive letter (an ImaGen or installer image, Linux).
+	// Windows gives no drive letter (an IMAGen or installer image, Linux).
 	Volumes []rawVolume `json:"volumes"`
 }
 

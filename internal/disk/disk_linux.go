@@ -203,7 +203,7 @@ func CheckWritable(path string) error {
 		return err
 	}
 	if boot, _ := DiskOfPath("/run/live/medium"); boot != "" && boot == name {
-		return fmt.Errorf("%s is the USB stick ImaGen booted from", path)
+		return fmt.Errorf("%s is the USB stick IMAGen booted from", path)
 	}
 	for dev, mps := range Mounts() {
 		if d, _ := DiskOfPath(dev); d == name {

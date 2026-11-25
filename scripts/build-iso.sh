@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the bootable ImaGen ISO. Run as root on Debian/Ubuntu, or let
+# Build the bootable IMAGen ISO. Run as root on Debian/Ubuntu, or let
 # scripts/build-iso-docker.sh run it inside a Debian container.
 #
 # Output: dist/imagen-<version>-amd64.iso (write it to a USB stick with
@@ -15,7 +15,7 @@ if ! command -v lb >/dev/null; then
 fi
 
 VERSION=$(sed -n 's/^var ToolVersion = "\(.*\)"/\1/p' internal/engine/engine.go)
-echo "Building ImaGen $VERSION"
+echo "Building IMAGen $VERSION"
 
 # Static Linux binary into the live filesystem.
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" \

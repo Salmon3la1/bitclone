@@ -167,7 +167,7 @@ func readRawVolumes(n int) []rawVolume {
 		return b
 	}
 	var vols []rawVolume
-	// An installer or ImaGen image written straight to the stick carries
+	// An installer or IMAGen image written straight to the stick carries
 	// an ISO-9660 header at 32 KB naming the whole disk.
 	if b := read(32768, 2048); b != nil && string(b[1:6]) == "CD001" {
 		if l := cleanText(b[40:72]); l != "" {

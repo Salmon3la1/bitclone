@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// On non-Linux systems ImaGen works only with disk image files. This lets
+// On non-Linux systems IMAGen works only with disk image files. This lets
 // the engine be developed and tested on any OS; the bootable USB is Linux.
 
 var errUnsupported = errors.New("raw disk access is only supported on Linux (the bootable USB); use image files here")

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Starts the ImaGen full-screen interface (cage + Firefox) on tty1.
+# Starts the IMAGen full-screen interface (cage + Firefox) on tty1.
 # If it keeps failing, shows a text screen with the reason instead of
 # leaving a blank console.
 
@@ -64,7 +64,7 @@ fallback() {
 	{
 		printf '\033c'
 		echo
-		echo "  ImaGen: the graphical interface could not start."
+		echo "  IMAGen: the graphical interface could not start."
 		echo
 		echo "  What you can do:"
 		echo "    * Restart the PC (hold the power button), boot from the USB stick"

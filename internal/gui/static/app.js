@@ -269,7 +269,7 @@ function viewBackup() {
     h('div', { class: 'cards' }, S.disks.map((d) => diskCard(d, {
       selected: d.path === b.source,
       disabled: d.bootMedia,
-      reason: d.bootMedia ? 'This is the ImaGen USB stick' : null,
+      reason: d.bootMedia ? 'This is the IMAGen USB stick' : null,
       onClick: () => { b.source = d.path; b.nameTouched = false; render(); },
     }))),
     !S.sys.rawDisk || S.disksErr ? manualPath('Source:', b.source, (v) => { b.source = v; render(); }) : null);
@@ -376,7 +376,7 @@ function viewRestore() {
     diskErr(),
     h('div', { class: 'cards' }, S.disks.map((d) => {
       let reason = null;
-      if (d.bootMedia) reason = 'This is the ImaGen USB stick';
+      if (d.bootMedia) reason = 'This is the IMAGen USB stick';
       else if (imgVol && imgVol.d.path === d.path) reason = 'The image is stored on this disk';
       else if (m && d.size < m.source.size) reason = `Too small: needs at least ${fmtBytes(m.source.size)}`;
       const mounted = (d.partitions || []).some((p) => p.mountpoints && p.mountpoints.length);
@@ -600,7 +600,7 @@ $('#job-cancel').onclick = async () => {
 document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => { S.view = b.dataset.view; render(); }));
 for (const [id, action, label] of [['#btn-reboot', 'reboot', 'Restart'], ['#btn-poweroff', 'poweroff', 'Shut down']]) {
   $(id).onclick = async () => {
-    if (await modal(label + ' the computer?', h('p', {}, 'Remove the ImaGen USB stick afterwards if you want to boot the restored disk.'), { yes: label })) {
+    if (await modal(label + ' the computer?', h('p', {}, 'Remove the IMAGen USB stick afterwards if you want to boot the restored disk.'), { yes: label })) {
       api('power', { action }).catch((e) => alert(e.message));
     }
   };

@@ -1,5 +1,5 @@
 [Unit]
-Description=ImaGen full-screen interface (cage + Firefox kiosk)
+Description=IMAGen full-screen interface (cage + Firefox kiosk)
 After=systemd-user-sessions.service imagen.service live-config.service plymouth-quit-wait.service
 Wants=imagen.service
 Conflicts=getty@tty1.service

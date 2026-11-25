@@ -105,7 +105,7 @@ func Backup(ctx context.Context, o BackupOptions, p *Progress) (err error) {
 	}
 
 	meta := &image.Meta{
-		Tool: "ImaGen", ToolVersion: ToolVersion, Created: time.Now().UTC(),
+		Tool: "IMAGen", ToolVersion: ToolVersion, Created: time.Now().UTC(),
 		Mode: o.Mode, ChunkSize: chunkSize,
 		Source:    image.SourceInfo{Path: o.Source, Model: o.Model, Serial: o.Serial, Size: src.Size, SectorSize: ss},
 		Table:     plan.Table,

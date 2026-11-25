@@ -41,11 +41,11 @@ function renderISO() {
   if (!iso) {
     box.replaceChildren(h('div', { class: 'empty' }, S.status.repo
       ? 'No boot image yet. Click “Download latest”, or choose an ISO file you already have.'
-      : 'Choose the ImaGen ISO file (imagen-…-amd64.iso).'));
+      : 'Choose the IMAGen ISO file (imagen-…-amd64.iso).'));
   } else {
     box.replaceChildren(h('div', { class: 'isobox' },
       h('div', { class: 'row' }, h('b', { class: 'grow' }, iso.name),
-        iso.imagen ? h('span', { class: 'tag green' }, 'ImaGen image') : h('span', { class: 'tag orange' }, 'not an ImaGen image')),
+        iso.imagen ? h('span', { class: 'tag green' }, 'IMAGen image') : h('span', { class: 'tag orange' }, 'not an IMAGen image')),
       h('div', { class: 'muted small' }, fmtBytes(iso.size), ' · ', iso.modified, ' · ', iso.path),
       !iso.imagen ? h('div', { class: 'notice' }, 'This ISO is not labelled IMAGEN. It can still be written, but it will not start imagen.') : null));
   }
@@ -98,7 +98,7 @@ function diskContents(d) {
   const name = diskName(d);
   const found = vols.map((v) => [v.label === name ? '' : v.label, v.fs, v.size ? '(' + fmtBytes(v.size) + ')' : ''].filter(Boolean).join(' '));
   const imagen = vols.some((v) => v.fs === 'ISO 9660' && /^IMAGEN/i.test(v.label));
-  return 'No drive letter' + (imagen ? ', already an ImaGen stick' : '') + (found.length ? ' · ' + found.join(', ') : '');
+  return 'No drive letter' + (imagen ? ', already an IMAGen stick' : '') + (found.length ? ' · ' + found.join(', ') : '');
 }
 
 function renderGo() {
@@ -148,7 +148,7 @@ function showJob() {
   $('#job-error').textContent = j.error || ''; $('#job-error').classList.toggle('hidden', !j.error || j.state === 'cancelled');
   const msg = $('#job-done-msg');
   msg.classList.toggle('hidden', !(j.state === 'done' && j.kind === 'write'));
-  msg.replaceChildren('Your ImaGen USB stick is ready. Remove it safely, plug it into the PC whose disk you want to back up, ',
+  msg.replaceChildren('Your IMAGen USB stick is ready. Remove it safely, plug it into the PC whose disk you want to back up, ',
     'and pick the USB stick in that PC’s boot menu (usually F12, F11, F8 or Esc right after power-on). ',
     'If Windows asks to format the stick now, click Cancel.');
   const log = $('#job-log'); log.textContent = p.log.join('\n'); log.scrollTop = log.scrollHeight;

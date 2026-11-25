@@ -1,6 +1,6 @@
 //go:build windows
 
-// Command imagen-usb creates an ImaGen boot USB stick on Windows.
+// Command imagen-usb creates an IMAGen boot USB stick on Windows.
 //
 // Double-click it: it asks for administrator rights (needed to write raw
 // disks), then opens its window. It can download the latest boot image from
@@ -47,7 +47,7 @@ func main() {
 	tok := randomToken()
 	p, err := freePort()
 	if err != nil {
-		messageBox("ImaGen USB", "Could not start: "+err.Error())
+		messageBox("IMAGen USB", "Could not start: "+err.Error())
 		return
 	}
 	url := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", p, tok)
@@ -59,17 +59,17 @@ func main() {
 			}
 		}()
 		if err := runServer(p, tok, true); err != nil {
-			messageBox("ImaGen USB", "Could not start: "+err.Error())
+			messageBox("IMAGen USB", "Could not start: "+err.Error())
 		}
 		return
 	}
 	exe, _ := os.Executable()
 	if err := runElevated(exe, fmt.Sprintf("-serve -port %d -token %s", p, tok)); err != nil {
-		messageBox("ImaGen USB", "Writing a USB stick needs administrator rights.\n\n"+err.Error())
+		messageBox("IMAGen USB", "Writing a USB stick needs administrator rights.\n\n"+err.Error())
 		return
 	}
 	if !waitReady(p, 60*time.Second) {
-		messageBox("ImaGen USB", "The program did not start. See "+filepath.Join(cacheDir(), "imagen-usb.log"))
+		messageBox("IMAGen USB", "The program did not start. See "+filepath.Join(cacheDir(), "imagen-usb.log"))
 		return
 	}
 	openBrowser(url)

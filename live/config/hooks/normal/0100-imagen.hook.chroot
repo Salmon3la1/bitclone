@@ -5,7 +5,7 @@ chmod 0755 /usr/local/bin/imagen /usr/local/bin/imagen-kiosk
 # The account the kiosk runs as. Created here, not by live-config at boot:
 # that needs the user-setup package, which a no-recommends build leaves out.
 if ! id user >/dev/null 2>&1; then
-	useradd --create-home --shell /bin/bash --comment "ImaGen" user
+	useradd --create-home --shell /bin/bash --comment "IMAGen" user
 fi
 for g in video render input audio; do
 	getent group "$g" >/dev/null && usermod -aG "$g" user

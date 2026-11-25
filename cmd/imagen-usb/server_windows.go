@@ -171,7 +171,7 @@ func (s *usbServer) selectISO(w http.ResponseWriter, r *http.Request) {
 func (s *usbServer) browseISO(w http.ResponseWriter, r *http.Request) {
 	out, err := powershell(`Add-Type -AssemblyName System.Windows.Forms
 $f = New-Object System.Windows.Forms.OpenFileDialog
-$f.Title = 'Choose the ImaGen boot image'
+$f.Title = 'Choose the IMAGen boot image'
 $f.Filter = 'Boot images (*.iso;*.img)|*.iso;*.img|All files (*.*)|*.*'
 $o = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true }
 if ($f.ShowDialog($o) -eq 'OK') { $f.FileName }`)

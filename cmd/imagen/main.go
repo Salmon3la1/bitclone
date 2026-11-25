@@ -68,7 +68,7 @@ func main() {
 	case "ping":
 		err = cmdPing(os.Args[2:])
 	case "version":
-		fmt.Println("ImaGen", engine.ToolVersion)
+		fmt.Println("IMAGen", engine.ToolVersion)
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
@@ -266,7 +266,7 @@ func cmdGUI(args []string) error {
 	fl := flag.NewFlagSet("gui", flag.ExitOnError)
 	listen := fl.String("listen", "127.0.0.1:8080", "address to serve the interface on")
 	fl.Parse(args)
-	fmt.Fprintf(os.Stderr, "ImaGen GUI on http://%s/\n", *listen)
+	fmt.Fprintf(os.Stderr, "IMAGen GUI on http://%s/\n", *listen)
 	return gui.Serve(*listen)
 }
 

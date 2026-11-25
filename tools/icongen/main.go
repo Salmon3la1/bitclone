@@ -1,4 +1,4 @@
-// Command icongen draws the ImaGen icon: two overlapping disk platters (the
+// Command icongen draws the IMAGen icon: two overlapping disk platters (the
 // original and its image) on a blue tile. It writes PNGs at the standard
 // Windows icon sizes and a multi-size .ico. The same shapes are in
 // icon.svg, used by the web interfaces. With -syso it also writes the

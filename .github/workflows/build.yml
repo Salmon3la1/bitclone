@@ -117,5 +117,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "ImaGen $GITHUB_REF_NAME" \
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "IMAGen $GITHUB_REF_NAME" \
             --notes "Download **imagen-usb.exe**, run it, and it will download the boot image and write your USB stick."

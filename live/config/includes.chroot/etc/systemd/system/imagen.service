@@ -1,5 +1,5 @@
 [Unit]
-Description=ImaGen imaging backend
+Description=IMAGen imaging backend
 After=local-fs.target systemd-udevd.service
 
 [Service]

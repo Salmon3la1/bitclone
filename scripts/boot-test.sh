@@ -1,6 +1,6 @@
 #!/bin/sh
 # Boots the ISO in QEMU and waits until the kiosk browser has loaded the
-# ImaGen interface. Saves the serial log and a screenshot next to the ISO.
+# IMAGen interface. Saves the serial log and a screenshot next to the ISO.
 #
 #   scripts/boot-test.sh dist/imagen-amd64.iso
 #
