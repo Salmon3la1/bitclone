@@ -52,7 +52,7 @@ const S = {
   view: 'backup',
   backup: { source: null, mode: 'used', plan: null, planErr: null, analyzing: false, planKey: '',
             dir: null, name: '', nameTouched: false, level: 1, split: false, verify: true },
-  restore: { image: null, info: null, infoErr: null, target: null, verifyFirst: true, fixGPT: true, zeroFill: false },
+  restore: { image: null, info: null, infoErr: null, target: null, verifyFirst: false, fixGPT: true, zeroFill: false },
   verify: { image: null, info: null },
   accounts: { scanned: false, loading: false, list: [], err: null, folder: '', builtin: {} },
   browse: {},
@@ -392,7 +392,7 @@ function viewRestore() {
   const larger = m && tgt && tgt.size > m.source.size;
   const s3 = step(3, 'Options', !m || !r.target,
     h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.verifyFirst, onchange: (e) => { r.verifyFirst = e.target.checked; } }),
-      h('span', {}, 'Verify the image before writing', h('div', { class: 'muted small' }, 'Recommended. The target is not touched if the image is damaged.'))),
+      h('span', {}, 'Verify the image before writing', h('div', { class: 'muted small' }, 'Optional. Reads the whole image first; if it is damaged, the target is not touched.'))),
     m && m.table && m.table.scheme === 'gpt' ? h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: r.fixGPT, onchange: (e) => { r.fixGPT = e.target.checked; } }),
       h('span', {}, 'Move the GPT backup table to the end of a larger disk', h('div', { class: 'muted small' },
         (larger ? 'The target is larger than the source. ' : '') + 'Only the header location changes; disk and partition GUIDs stay identical.'))) : null,
