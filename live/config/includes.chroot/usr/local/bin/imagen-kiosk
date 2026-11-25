@@ -14,6 +14,52 @@ export WLR_NO_HARDWARE_CURSORS=1
 export XDG_SESSION_TYPE=wayland
 export MOZ_ENABLE_WAYLAND=1
 
+# Zoom factor for the interface, like Windows' 125%/150%/200% display
+# scaling. Without it a high-resolution laptop panel shows tiny text and
+# the page fills only part of the screen.
+#   * boot option imagen.scale=1.5 wins;
+#   * a built-in panel (eDP/LVDS/DSI): from its real pixel density, using
+#     the physical size in its EDID (110 dpi = 100%);
+#   * any other screen: from the resolution alone.
+# Rounded to a quarter and kept between 1 and 3.
+pick_scale() {
+	for arg in $(cat /proc/cmdline); do
+		case "$arg" in imagen.scale=*) echo "${arg#imagen.scale=} (boot option)"; return ;; esac
+	done
+	best="" best_w=0
+	for c in /sys/class/drm/card*-*; do
+		[ "$(cat "$c/status" 2>/dev/null)" = connected ] || continue
+		mode=$(head -n 1 "$c/modes" 2>/dev/null)
+		w=${mode%%x*}; h=${mode#*x}; h=${h%%[!0-9]*}
+		[ -n "$w" ] && [ "$w" -gt 0 ] 2>/dev/null || continue
+		cm=$(od -An -tu1 -j21 -N1 "$c/edid" 2>/dev/null | tr -d ' ')
+		case "${c##*/}" in *eDP*|*LVDS*|*DSI*) internal=1 ;; *) internal=0 ;; esac
+		# The built-in panel decides; otherwise the largest screen.
+		if [ $internal = 1 ] || [ -z "$best" ] || [ "$w" -gt "$best_w" ]; then
+			best="${c##*/} $w $h ${cm:-0} $internal"; best_w=$w
+			[ $internal = 1 ] && break
+		fi
+	done
+	[ -n "$best" ] || { echo "1 (no screen information)"; return; }
+	set -- $best
+	awk -v name="$1" -v w="$2" -v h="$3" -v cm="$4" -v internal="$5" 'BEGIN {
+		if (internal == 1 && cm >= 10) { dpi = w / (cm / 2.54); s = dpi / 110; how = sprintf("%s %dx%d, %d cm wide, %d dpi", name, w, h, cm, dpi) }
+		else { s = (w >= 3200) ? 2 : (w >= 2400) ? 1.5 : 1; how = sprintf("%s %dx%d", name, w, h) }
+		s = int(s * 4 + 0.5) / 4; if (s < 1) s = 1; if (s > 3) s = 3
+		printf "%s (%s)\n", s, how }'
+}
+
+# A fresh Firefox profile in memory carrying the zoom factor.
+make_profile() {
+	PROFILE=/tmp/imagen-firefox
+	rm -rf "$PROFILE" && mkdir -p "$PROFILE"
+	cat >"$PROFILE/user.js" <<EOF
+user_pref("layout.css.devPixelsPerPx", "$SCALE");
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);
+EOF
+}
+
 fallback() {
 	{
 		printf '\033c'
@@ -43,9 +89,13 @@ fallback() {
 
 failures=0
 while :; do
-	echo "--- $(date '+%H:%M:%S') starting interface (renderer: $WLR_RENDERER)" >>"$LOG"
+	scale_info=$(pick_scale)
+	SCALE=${scale_info%% *}
+	make_profile
+	echo "--- $(date '+%H:%M:%S') starting interface (renderer: $WLR_RENDERER, scale $scale_info)" >>"$LOG"
+	echo "interface scale $scale_info" >&2 # into the journal
 	started=$(date +%s)
-	/usr/bin/cage -s -d -- /usr/bin/firefox-esr --kiosk --private-window "$URL" >>"$LOG" 2>&1
+	/usr/bin/cage -s -d -- /usr/bin/firefox-esr --kiosk --profile "$PROFILE" --private-window "$URL" >>"$LOG" 2>&1
 	status=$?
 	echo "--- interface exited with status $status" >>"$LOG"
 	tail -n 20 "$LOG" >&2 # also into the journal

@@ -93,6 +93,12 @@ external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
      passwords are read. BitLocker-encrypted partitions are listed as unreadable.
 4. A text console is on **Ctrl+Alt+F2** (user `user`, password `live`) for the
    command line.
+5. The interface is zoomed to suit the screen, as Windows' display scaling does:
+   a laptop panel by its pixel density (a 14" 2560×1600 panel gets 200%), other
+   screens by resolution. To choose the zoom yourself, press **e** in the boot
+   menu, add `imagen.scale=1.5` (1 to 3) to the `linux` line and press
+   **Ctrl+X** or **F10**. If the screen stays blank, choose
+   *Live system (amd64 fail-safe mode)* in the boot menu.
 
 ## Command line
 
