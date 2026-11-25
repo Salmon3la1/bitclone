@@ -5,10 +5,15 @@
 #   scripts/boot-test.sh dist/imagen-amd64.iso
 #
 # Needs: qemu-system-x86, xorriso, socat. Uses KVM when /dev/kvm exists.
+# RES=2560x1600 makes the virtual screen report that resolution as its
+# preferred mode (like a laptop panel); the default is 1280x800.
 set -eu
 ISO=$(realpath "$1")
 OUT=$(dirname "$ISO")/boot-test
 TIMEOUT=${TIMEOUT:-420}
+RES=${RES:-1280x800}
+XRES=${RES%x*}
+YRES=${RES#*x}
 rm -rf "$OUT" && mkdir -p "$OUT"
 
 echo "== boot menu entries"
@@ -27,7 +32,7 @@ ACCEL=""
 # shellcheck disable=SC2086
 qemu-system-x86_64 $ACCEL -m 3072 -smp 2 \
 	-cdrom "$ISO" -kernel "$OUT/vmlinuz" -initrd "$OUT/initrd.img" -append "$APPEND" \
-	-vga std -display none \
+	-vga none -device "VGA,edid=on,xres=$XRES,yres=$YRES,vgamem_mb=64" -display none \
 	-serial "file:$OUT/serial.log" \
 	-monitor "unix:$OUT/monitor.sock,server,nowait" &
 QEMU=$!
