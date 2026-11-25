@@ -66,21 +66,46 @@ function renderDisks() {
   const isoSize = S.status.iso ? S.status.iso.size : 0;
   box.replaceChildren(...S.disks.map((d) => {
     const tooSmall = isoSize && d.size < isoSize;
-    const vols = d.letters.map((l, i) => l + ':' + (d.labels[i] ? ' ' + d.labels[i] : '')).join(', ');
+    const extra = diskContents(d);
     return h('div', { class: 'card' + (S.sel && S.sel.number === d.number ? ' sel' : ''),
                       onclick: () => { S.sel = d; renderDisks(); renderGo(); } },
-      h('div', { class: 'title' }, h('span', {}, d.model || 'USB drive'), h('span', {}, fmtBytes(d.size))),
-      h('div', { class: 'sub' }, vols || 'no drive letter', h('span', { class: 'tag' }, d.bus), ' disk ', d.number),
+      h('div', { class: 'title' }, h('span', {}, diskName(d)), h('span', {}, fmtBytes(d.size))),
+      h('div', { class: 'sub' }, d.model || 'USB drive', h('span', { class: 'tag' }, d.bus), ' disk ', d.number,
+        d.serial ? ' · serial ' + d.serial : ''),
+      extra ? h('div', { class: 'sub' }, extra) : null,
       d.large ? h('div', { class: 'sub', style: 'color:var(--warn)' }, 'Large drive. Is this an external hard disk with your files?') : null,
       tooSmall ? h('div', { class: 'sub error' }, 'Too small for this image') : null);
   }));
+}
+
+// The name Explorer would show, "ESD-USB (E:)" or "USB Drive (E:, F:)", or for
+// a stick without a letter the label read from the disk itself ("IMAGEN").
+function diskName(d) {
+  if (d.letters.length) {
+    const label = d.labels.find((l) => l) || 'USB Drive';
+    return `${label} (${d.letters.map((l) => l + ':').join(', ')})`;
+  }
+  const v = (d.volumes || []).find((v) => v.label);
+  return v ? v.label : (d.model || 'USB drive');
+}
+
+// An extra line: each letter with its own label when there are several, or
+// what was found on a stick Windows gives no letter.
+function diskContents(d) {
+  if (d.letters.length > 1) return d.letters.map((l, i) => l + ':' + (d.labels[i] ? ' ' + d.labels[i] : '')).join(', ');
+  if (d.letters.length) return '';
+  const vols = d.volumes || [];
+  const name = diskName(d);
+  const found = vols.map((v) => [v.label === name ? '' : v.label, v.fs, v.size ? '(' + fmtBytes(v.size) + ')' : ''].filter(Boolean).join(' '));
+  const imagen = vols.some((v) => v.fs === 'ISO 9660' && /^IMAGEN/i.test(v.label));
+  return 'No drive letter' + (imagen ? ', already an ImaGen stick' : '') + (found.length ? ' · ' + found.join(', ') : '');
 }
 
 function renderGo() {
   const iso = S.status.iso, d = S.sel;
   const ok = iso && d && d.size >= iso.size;
   $('#btn-write').disabled = !ok || (S.status.job && S.status.job.state === 'running');
-  $('#summary').textContent = ok ? `${iso.name} → ${d.model} (${fmtBytes(d.size)})` : '';
+  $('#summary').textContent = ok ? `${iso.name} → ${diskName(d)} (${fmtBytes(d.size)})` : '';
 }
 
 async function loadDisks() {
@@ -158,8 +183,8 @@ $('#iso-list').onchange = async (e) => {
 $('#btn-download').onclick = () => api('iso/download', {}).catch((e) => alert(e.message));
 $('#btn-write').onclick = async () => {
   const d = S.sel, iso = S.status.iso;
-  const ok = await modal(`Erase ${d.model}?`, h('div', {},
-    h('p', {}, 'All files on ', h('b', {}, d.model), ` (${fmtBytes(d.size)}`, d.letters.length ? ', drive ' + d.letters.join(', ') + ':' : '', ') will be permanently deleted, and it will be replaced with ', h('b', {}, iso.name), '.')), 'Erase and write');
+  const ok = await modal(`Erase ${diskName(d)}?`, h('div', {},
+    h('p', {}, 'All files on ', h('b', {}, diskName(d)), ` (${d.model ? d.model + ', ' : ''}${fmtBytes(d.size)}`, d.letters.length ? ', drive ' + d.letters.join(', ') + ':' : '', ') will be permanently deleted, and it will be replaced with ', h('b', {}, iso.name), '.')), 'Erase and write');
   if (!ok) return;
   try { await api('write', d); } catch (e) { alert(e.message); }
 };

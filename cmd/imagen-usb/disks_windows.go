@@ -25,6 +25,9 @@ type USBDisk struct {
 	Letters  []string `json:"letters"`
 	Labels   []string `json:"labels"`
 	Large    bool     `json:"large"` // probably an external hard drive, not a stick
+	// Volumes found by reading the disk itself: what is on a stick that
+	// Windows gives no drive letter (an ImaGen or installer image, Linux).
+	Volumes []rawVolume `json:"volumes"`
 }
 
 const listScript = `
@@ -62,15 +65,61 @@ func listUSBDisks() ([]USBDisk, error) {
 	if err := json.Unmarshal(out, &all); err != nil {
 		return nil, fmt.Errorf("listing disks: %w", err)
 	}
+	vols := letterVolumes()
 	var usb []USBDisk
 	for _, d := range all {
 		if !eligibleBus(d.Bus) || d.IsBoot || d.IsSystem || d.Size <= 0 {
 			continue
 		}
 		d.Large = d.Size > 256e9
+		addNativeDetails(&d, vols)
 		usb = append(usb, d)
 	}
 	return usb, nil
+}
+
+// addNativeDetails fills in what Get-Disk and Get-Partition leave out:
+// drive letters matched through volume disk extents (which also finds a
+// letter on a disk Get-Partition cannot read), the make and model from the
+// storage descriptor, and labels read from the disk when it has no letter.
+func addNativeDetails(d *USBDisk, vols []letterVolume) {
+	desc := describeDisk(d.Number)
+	if strings.TrimSpace(d.Model) == "" {
+		d.Model = desc.Name
+	}
+	if s := cleanText([]byte(d.Serial)); len(s) >= 4 {
+		d.Serial = s
+	} else if len(desc.Serial) >= 4 {
+		d.Serial = desc.Serial
+	} else {
+		d.Serial = ""
+	}
+	have := map[string]bool{}
+	for _, l := range d.Letters {
+		have[l] = true
+	}
+	for len(d.Labels) < len(d.Letters) {
+		d.Labels = append(d.Labels, "")
+	}
+	for _, v := range vols {
+		for _, n := range v.Disks {
+			if n == d.Number && !have[v.Letter] {
+				have[v.Letter] = true
+				d.Letters = append(d.Letters, v.Letter)
+				d.Labels = append(d.Labels, v.Label)
+			}
+		}
+	}
+	for i, l := range d.Letters { // labels Get-Volume did not give
+		for _, v := range vols {
+			if v.Letter == l && d.Labels[i] == "" {
+				d.Labels[i] = v.Label
+			}
+		}
+	}
+	if len(d.Letters) == 0 {
+		d.Volumes = readRawVolumes(d.Number)
+	}
 }
 
 // prepareDisk re-checks that disk number n is still the disk the user
