@@ -71,6 +71,14 @@ Before erasing, the app checks again that the selected drive is the same one
 (model and size), still on USB, and not a system disk. It refuses if the ISO or
 the program itself is stored on that stick.
 
+**Convert a backup to .img**: the same program can turn an IMAGen backup
+(`.bci`) into a plain disk image (`.img`) that data-recovery tools such as
+Digger, and virtual machines, can open. Choose the backup, check where the
+`.img` goes, and click **Convert to .img**. The backup is not changed. On an
+NTFS drive the areas the backup skipped take no space. Only an *Every sector*
+backup holds deleted files; in a *Used data only* backup free space reads as
+zeros.
+
 The stick then holds only the boot system. Store backup images on a separate
 external drive. (Rufus or balenaEtcher in "DD image" mode also work.)
 
@@ -116,6 +124,7 @@ imagen backup  -source /dev/sda -out /mnt/x/pc.bci -mode full -split 4000M
 imagen restore -image /mnt/x/pc.bci -target /dev/sdb
 imagen verify  /mnt/x/pc.bci
 imagen info    /mnt/x/pc.bci
+imagen export  /mnt/x/pc.bci /mnt/x/pc.img        # plain disk image for other tools
 imagen accounts                                  # Windows user accounts on all disks
 imagen gui                                       # web UI on 127.0.0.1:8080
 ```

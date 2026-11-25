@@ -36,6 +36,13 @@
     <div class="notice danger">Everything on the selected USB stick will be erased.</div>
     <div class="go"><span id="summary" class="muted small"></span><button id="btn-write" class="primary" disabled>Write USB stick</button></div>
   </section>
+
+  <section class="step">
+    <h2>Convert a backup to .img</h2>
+    <p class="muted small">Makes a plain disk image (.img) from an IMAGen backup (.bci), for programs that read raw disk images, such as data-recovery tools (Digger) and virtual machines. The backup itself is not changed.</p>
+    <div id="bci"></div>
+    <div class="go"><span id="bci-summary" class="muted small"></span><button id="btn-bci">Choose backup…</button><button id="btn-convert" class="primary hidden" disabled>Convert to .img</button></div>
+  </section>
 </main>
 
 <div id="job" class="overlay hidden">

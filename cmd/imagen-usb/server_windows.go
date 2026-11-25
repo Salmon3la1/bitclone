@@ -25,7 +25,7 @@ var static embed.FS
 
 type uJob struct {
 	ID      int       `json:"id"`
-	Kind    string    `json:"kind"`  // download, write
+	Kind    string    `json:"kind"`  // download, write, convert
 	State   string    `json:"state"` // running, done, failed, cancelled
 	Error   string    `json:"error,omitempty"`
 	Summary string    `json:"summary"`
@@ -62,6 +62,9 @@ func runServer(port int, token string, _ bool) error {
 	mux.HandleFunc("/api/iso/browse", s.auth(s.browseISO))
 	mux.HandleFunc("/api/iso/download", s.auth(s.download))
 	mux.HandleFunc("/api/write", s.auth(s.write))
+	mux.HandleFunc("/api/bci/browse", s.auth(s.bciBrowse))
+	mux.HandleFunc("/api/bci/saveas", s.auth(s.bciSaveAs))
+	mux.HandleFunc("/api/convert", s.auth(s.convert))
 	mux.HandleFunc("/api/cancel", s.auth(s.cancel))
 	mux.HandleFunc("/api/quit", s.auth(s.quit))
 	go s.watchdog()

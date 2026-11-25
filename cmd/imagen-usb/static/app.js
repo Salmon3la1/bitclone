@@ -33,7 +33,7 @@ function fmtDur(s) {
   return m ? `${m}m ${s % 60}s` : `${s}s`;
 }
 
-const S = { status: {}, isos: [], disks: null, disksErr: null, sel: null, dismissed: 0 };
+const S = { status: {}, isos: [], disks: null, disksErr: null, sel: null, dismissed: 0, bci: null };
 
 function renderISO() {
   const iso = S.status.iso;
@@ -133,7 +133,8 @@ function showJob() {
   const j = S.status.job, p = S.status.progress, ov = $('#job');
   if (!j || (j.state !== 'running' && j.id === S.dismissed)) { ov.classList.add('hidden'); return; }
   ov.classList.remove('hidden');
-  const titles = { download: ['Downloading boot image…', 'Download complete'], write: ['Writing USB stick…', 'USB stick ready'] };
+  const titles = { download: ['Downloading boot image…', 'Download complete'], write: ['Writing USB stick…', 'USB stick ready'],
+                   convert: ['Converting to .img…', 'Disk image saved'] };
   $('#job-title').textContent = j.state === 'running' ? titles[j.kind][0] : j.state === 'done' ? titles[j.kind][1] : j.summary;
   $('#job-state').textContent = j.state; $('#job-state').className = 'pill ' + j.state;
   $('#job-phase').textContent = p.phase;
@@ -147,13 +148,67 @@ function showJob() {
   $('#job-eta').textContent = running ? fmtDur(p.eta) : fmtDur((new Date(j.ended) - new Date(j.started)) / 1000);
   $('#job-error').textContent = j.error || ''; $('#job-error').classList.toggle('hidden', !j.error || j.state === 'cancelled');
   const msg = $('#job-done-msg');
-  msg.classList.toggle('hidden', !(j.state === 'done' && j.kind === 'write'));
-  msg.replaceChildren('Your IMAGen USB stick is ready. Remove it safely, plug it into the PC whose disk you want to back up, ',
+  msg.classList.toggle('hidden', !(j.state === 'done' && (j.kind === 'write' || j.kind === 'convert')));
+  if (j.kind === 'convert') msg.replaceChildren('Saved ', h('b', {}, S.bci ? S.bci.out : 'the .img file'), '. Open it in your recovery tool or virtual machine as a raw disk image (in Digger: Open a disk image).');
+  else msg.replaceChildren('Your IMAGen USB stick is ready. Remove it safely, plug it into the PC whose disk you want to back up, ',
     'and pick the USB stick in that PC’s boot menu (usually F12, F11, F8 or Esc right after power-on). ',
     'If Windows asks to format the stick now, click Cancel.');
   const log = $('#job-log'); log.textContent = p.log.join('\n'); log.scrollTop = log.scrollHeight;
   $('#job-cancel').classList.toggle('hidden', !running);
   $('#job-close').classList.toggle('hidden', running);
+}
+
+
+// ---------- convert a .bci backup to .img ----------
+const FOUR_GB = 4 * 1024 * 1024 * 1024 - 1;
+// Bytes the .img will really take on its drive: NTFS keeps the areas that
+// were not backed up as empty space; other filesystems store every byte.
+function bciNeed(b) { return b.outFS === 'NTFS' || b.outFS === 'ReFS' ? b.data : b.diskSize; }
+function bciProblem(b) {
+  if (/^FAT/i.test(b.outFS) && b.diskSize > FOUR_GB) return `That drive is ${b.outFS}, which holds files up to 4 GB. Save the .img on an NTFS or exFAT drive.`;
+  if (b.outFree && bciNeed(b) > b.outFree) return `Not enough free space there: needs about ${fmtBytes(bciNeed(b))}, ${fmtBytes(b.outFree)} free.`;
+  return '';
+}
+
+function renderBCI() {
+  const b = S.bci, box = $('#bci');
+  $('#btn-bci').textContent = b ? 'Choose another backup…' : 'Choose backup…';
+  $('#btn-convert').classList.toggle('hidden', !b);
+  if (!b) { box.replaceChildren(); $('#bci-summary').textContent = ''; return; }
+  const created = b.created ? new Date(b.created).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  const problem = bciProblem(b);
+  box.replaceChildren(h('div', { class: 'isobox' },
+    h('div', { class: 'row' }, h('b', { class: 'grow' }, b.name),
+      h('span', { class: 'tag' + (b.mode === 'full' ? ' green' : '') }, b.mode === 'full' ? 'Every sector' : 'Used data only')),
+    h('div', { class: 'muted small' }, 'Backup of ', b.model || 'a disk', ` (${fmtBytes(b.diskSize)})`, created ? ' · ' + created : '',
+      ' · ', fmtBytes(b.fileSize), b.parts > 1 ? ` in ${b.parts} files` : ''),
+    b.mode !== 'full' ? h('div', { class: 'notice' }, 'This backup copied only the data in use. Free space was not saved, so deleted files cannot be recovered from it. Areas that were not saved read as zeros.') : null,
+    h('div', { class: 'row', style: 'margin-top:10px' },
+      h('div', { class: 'grow small' }, h('span', { class: 'muted' }, 'Saves to '), h('span', { class: 'mono' }, b.out)),
+      h('button', { class: 'small', onclick: chooseImgPath }, 'Change…')),
+    h('div', { class: 'muted small', style: 'margin-top:4px' },
+      `A ${fmtBytes(b.diskSize)} disk image`,
+      bciNeed(b) < b.diskSize ? `, taking about ${fmtBytes(bciNeed(b))} of space on ${b.outFS}` : '',
+      b.outFree ? ` · ${fmtBytes(b.outFree)} free there` : ''),
+    b.exists ? h('div', { class: 'notice' }, 'A file with this name already exists. It will be replaced.') : null,
+    problem ? h('div', { class: 'notice danger' }, problem) : null));
+  const busy = S.status.job && S.status.job.state === 'running';
+  $('#btn-convert').disabled = !!problem || busy;
+  $('#bci-summary').textContent = '';
+}
+
+async function chooseBCI() {
+  try { const r = await api('bci/browse', {}); if (!r.cancelled) { S.bci = r.bci; renderBCI(); } }
+  catch (e) { alert(e.message); }
+}
+async function chooseImgPath() {
+  try { const r = await api('bci/saveas', { path: S.bci.path, out: S.bci.out }); if (!r.cancelled) { S.bci = r.bci; renderBCI(); } }
+  catch (e) { alert(e.message); }
+}
+async function startConvert() {
+  const b = S.bci;
+  if (b.exists && !await modal('Replace the existing file?', h('p', {}, h('b', {}, b.out), ' already exists and will be replaced.'), 'Replace')) return;
+  try { await api('convert', { path: b.path, out: b.out, overwrite: b.exists }); } catch (e) { alert(e.message); }
 }
 
 async function poll() {
@@ -164,8 +219,9 @@ async function poll() {
     showJob();
     if (prevJob && prevJob.state === 'running' && S.status.job && S.status.job.state !== 'running') {
       renderISO(); loadDisks(); if (S.status.job.kind === 'download') loadISOs();
+      if (S.status.job.kind === 'convert' && S.bci && S.status.job.state === 'done') S.bci.exists = true;
     }
-    renderGo();
+    renderGo(); renderBCI();
   } catch (e) { /* backend gone */ }
   setTimeout(poll, 1000);
 }
@@ -189,8 +245,12 @@ $('#btn-write').onclick = async () => {
   try { await api('write', d); } catch (e) { alert(e.message); }
 };
 $('#job-cancel').onclick = async () => {
-  if (await modal('Cancel?', h('p', {}, 'The USB stick will be left unusable until you write it again.'), 'Cancel writing')) api('cancel', {});
+  const conv = S.status.job && S.status.job.kind === 'convert';
+  if (await modal('Cancel?', h('p', {}, conv ? 'The unfinished .img file is deleted. The backup is not changed.' : 'The USB stick will be left unusable until you write it again.'),
+    conv ? 'Cancel converting' : 'Cancel writing')) api('cancel', {});
 };
+$('#btn-bci').onclick = chooseBCI;
+$('#btn-convert').onclick = startConvert;
 $('#job-close').onclick = () => { S.dismissed = S.status.job.id; showJob(); };
 
 renderISO(); renderDisks();

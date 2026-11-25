@@ -27,6 +27,7 @@ Usage:
   imagen restore -image FILE.bci -target DISK [-yes] [-zero-fill] [-no-fix-gpt] [-verify-first]
   imagen verify  FILE.bci                  check image integrity
   imagen info    FILE.bci                  show image metadata
+  imagen export  FILE.bci FILE.img         convert to a plain disk image (for recovery tools, VMs)
   imagen accounts [-dir FOLDER] [-json]   list Windows user accounts on all disks (read-only)
   imagen gui     [-listen 127.0.0.1:8080]  start the graphical interface
 
@@ -59,6 +60,8 @@ func main() {
 		err = cmdRestore(ctx, os.Args[2:])
 	case "verify":
 		err = cmdVerify(ctx, os.Args[2:])
+	case "export":
+		err = cmdExport(ctx, os.Args[2:])
 	case "info":
 		err = cmdInfo(os.Args[2:])
 	case "accounts":
@@ -246,6 +249,19 @@ func cmdVerify(ctx context.Context, args []string) error {
 	p, done := cliProgress()
 	defer done()
 	_, err := engine.Verify(ctx, args[0], p)
+	return err
+}
+
+func cmdExport(ctx context.Context, args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("export needs an image and the .img file to write")
+	}
+	if _, err := os.Stat(args[1]); err == nil {
+		return fmt.Errorf("%s already exists", args[1])
+	}
+	p, done := cliProgress()
+	defer done()
+	_, err := engine.Export(ctx, args[0], args[1], p)
 	return err
 }
 
