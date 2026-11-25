@@ -35,7 +35,9 @@ ACCEL=""
 qemu-system-x86_64 $ACCEL -m 3072 -smp 2 \
 	-cdrom "$ISO" -kernel "$OUT/vmlinuz" -initrd "$OUT/initrd.img" -append "$APPEND" \
 	-vga none -device "VGA,edid=on,xres=$XRES,yres=$YRES,vgamem_mb=64" -display none \
+	-device qemu-xhci -device usb-tablet \
 	-serial "file:$OUT/serial.log" \
+	-qmp "unix:$OUT/qmp.sock,server,nowait" \
 	-monitor "unix:$OUT/monitor.sock,server,nowait" &
 QEMU=$!
 trap 'kill $QEMU 2>/dev/null || true' EXIT
