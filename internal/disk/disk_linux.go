@@ -297,10 +297,37 @@ func Unmount(mp string) error {
 	return nil
 }
 
-// Power runs "poweroff" or "reboot".
+// Power turns the PC off ("poweroff") or restarts it ("reboot").
+//
+// It does not go through systemd's shutdown: on a live system that has to
+// read its final shutdown program from the USB stick, and on some laptops
+// the stick can no longer be read by then ("Failed to execute shutdown
+// binary"), so the PC hangs on a screen of errors instead of turning off.
+// Nothing on the live system needs saving (it runs from memory), so it is
+// enough to write out the drives IMAGen mounted, without starting any
+// program from the stick, and then tell the hardware directly.
 func Power(action string) error {
-	exec.Command("sync").Run()
-	return exec.Command("systemctl", action).Run()
+	cmd := syscall.LINUX_REBOOT_CMD_POWER_OFF
+	if action == "reboot" {
+		cmd = syscall.LINUX_REBOOT_CMD_RESTART
+	}
+	syscall.Sync()
+	var mps []string
+	if b, err := os.ReadFile("/proc/self/mounts"); err == nil {
+		for _, l := range strings.Split(string(b), "\n") {
+			if f := strings.Fields(l); len(f) > 1 && strings.HasPrefix(f[1], "/mnt/imagen/") {
+				mps = append(mps, f[1])
+			}
+		}
+	}
+	// Deepest first. For ntfs-3g (FUSE) the unmount returns once it has
+	// written everything out.
+	sort.Sort(sort.Reverse(sort.StringSlice(mps)))
+	for _, mp := range mps {
+		syscall.Unmount(mp, 0)
+	}
+	syscall.Sync()
+	return syscall.Reboot(cmd)
 }
 
 // FreeSpace reports the free and total bytes of the filesystem mounted at mp.

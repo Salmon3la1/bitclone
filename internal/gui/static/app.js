@@ -871,7 +871,15 @@ document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('clic
 for (const [id, action, label] of [['#btn-reboot', 'reboot', 'Restart'], ['#btn-poweroff', 'poweroff', 'Shut down']]) {
   $(id).onclick = async () => {
     if (await modal(label + ' the computer?', h('p', {}, 'Remove the IMAGen USB stick afterwards if you want to boot the restored disk.'), { yes: label })) {
-      api('power', { action }).catch((e) => alert(e.message));
+      try {
+        await api('power', { action });
+        clearTimeout(pollTimer); pollJob = () => {};
+        document.body.append(h('div', { class: 'overlay' }, h('div', { class: 'jobcard', style: 'text-align:center' },
+          h('h2', {}, action === 'reboot' ? 'Restarting…' : 'Turning off…'),
+          h('p', { class: 'muted' }, action === 'reboot'
+            ? 'Remove the IMAGen USB stick now if you want the PC to start from its own disk.'
+            : 'You can remove the IMAGen USB stick once the screen goes dark.'))));
+      } catch (e) { alert(e.message); }
     }
   };
 }

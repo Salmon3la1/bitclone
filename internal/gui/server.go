@@ -431,6 +431,8 @@ func (s *server) power(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		disk.Power(req.Action)
+		if err := disk.Power(req.Action); err != nil {
+			log.Printf("%s failed: %v", req.Action, err)
+		}
 	}()
 }
