@@ -9,10 +9,14 @@ on:
     inputs:
       tag:
         description: Release tag whose imagen-amd64.iso to boot
-        default: v0.3.1
+        default: v0.3.2
       resolutions:
         description: Space-separated screen resolutions
-        default: 1920x1080 2560x1600
+        default: 1280x800
+      poweroff:
+        description: Also click Shut down (at 1280x800) and record the shutdown
+        type: boolean
+        default: true
 
 jobs:
   boot:
@@ -24,7 +28,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p dist
-          gh release download "${{ inputs.tag || 'v0.3.1' }}" --repo "$GITHUB_REPOSITORY" --pattern imagen-amd64.iso --dir dist
+          gh release download "${{ inputs.tag || 'v0.3.2' }}" --repo "$GITHUB_REPOSITORY" --pattern imagen-amd64.iso --dir dist
       - name: Boot at each resolution
         run: |
           sudo apt-get update
@@ -34,7 +38,7 @@ jobs:
             sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
           fi
           mkdir -p out
-          for r in ${{ inputs.resolutions || '1920x1080 2560x1600' }}; do
+          for r in ${{ inputs.resolutions || '1280x800' }}; do
             echo "::group::$r"
             RES=$r sh scripts/boot-test.sh dist/imagen-amd64.iso || echo "boot at $r failed"
             [ -f dist/boot-test/screen.ppm ] && pnmtopng dist/boot-test/screen.ppm > "out/screen-$r.png"
@@ -42,6 +46,13 @@ jobs:
             chmod -R u+w dist/boot-test; rm -rf dist/boot-test
             echo "::endgroup::"
           done
+          if [ "${{ inputs.poweroff == false && 'no' || 'yes' }}" = yes ]; then
+            echo "::group::shut down"
+            RES=1280x800 POWEROFF=1 sh scripts/boot-test.sh dist/imagen-amd64.iso || echo "shutdown test failed"
+            for p in dist/boot-test/*.ppm; do pnmtopng "$p" > "out/$(basename "$p" .ppm).png"; done
+            cp dist/boot-test/serial.log out/serial-shutdown.log || true
+            echo "::endgroup::"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

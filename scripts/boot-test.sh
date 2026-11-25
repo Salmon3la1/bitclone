@@ -7,6 +7,8 @@
 # Needs: qemu-system-x86, xorriso, socat. Uses KVM when /dev/kvm exists.
 # RES=2560x1600 makes the virtual screen report that resolution as its
 # preferred mode (like a laptop panel); the default is 1280x800.
+# POWEROFF=1 then clicks Shut down (screen must be 1280x800) and saves a
+# screenshot every few seconds while the PC shuts down (shutdown-NN.ppm).
 set -eu
 ISO=$(realpath "$1")
 OUT=$(dirname "$ISO")/boot-test
@@ -48,10 +50,40 @@ while [ $i -lt "$TIMEOUT" ]; do
 done
 [ $ok = 1 ] && sleep 15 # let the page finish drawing
 
+# click X Y: a left click at screen pixel X,Y (1280x800) through QMP.
+click() {
+	ax=$(($1 * 32767 / 1279)); ay=$(($2 * 32767 / 799))
+	{
+		echo '{"execute":"qmp_capabilities"}'
+		echo '{"execute":"input-send-event","arguments":{"events":[{"type":"abs","data":{"axis":"x","value":'$ax'}},{"type":"abs","data":{"axis":"y","value":'$ay'}}]}}'
+		sleep 0.3
+		echo '{"execute":"input-send-event","arguments":{"events":[{"type":"btn","data":{"button":"left","down":true}}]}}'
+		sleep 0.1
+		echo '{"execute":"input-send-event","arguments":{"events":[{"type":"btn","data":{"button":"left","down":false}}]}}'
+		sleep 0.3
+	} | socat - "UNIX-CONNECT:$OUT/qmp.sock" >/dev/null || true
+}
+
 echo "screendump $OUT/screen.ppm" | socat - "UNIX-CONNECT:$OUT/monitor.sock" >/dev/null || true
 sleep 2
 echo "== kiosk / interface lines from the serial log"
 grep -aE "imagen|cage|firefox|interface" "$OUT/serial.log" | tail -n 40 || true
+
+if [ $ok = 1 ] && [ "${POWEROFF:-}" = 1 ]; then
+	echo "== clicking Shut down"
+	click 1186 33; sleep 3
+	echo "screendump $OUT/shutdown-00.ppm" | socat - "UNIX-CONNECT:$OUT/monitor.sock" >/dev/null || true
+	click 831 450
+	n=1
+	while [ $n -le 40 ] && kill -0 $QEMU 2>/dev/null; do
+		sleep 3
+		echo "screendump $OUT/shutdown-$(printf %02d $n).ppm" | socat - "UNIX-CONNECT:$OUT/monitor.sock" >/dev/null 2>&1 || true
+		n=$((n + 1))
+	done
+	kill -0 $QEMU 2>/dev/null && echo "== the PC did not power off within 120s" || echo "== the PC powered off"
+	echo "== serial log from the click on"
+	sed -n '/interface connected/,$p' "$OUT/serial.log" | tail -n 150
+fi
 
 if [ $ok = 1 ]; then
 	echo "== PASS: the interface loaded after about ${i}s"
