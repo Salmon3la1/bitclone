@@ -46,7 +46,7 @@ jobs:
             chmod -R u+w dist/boot-test; rm -rf dist/boot-test
             echo "::endgroup::"
           done
-          if [ "${{ inputs.poweroff == false && 'no' || 'yes' }}" = yes ]; then
+          if [ "${{ (github.event_name == 'push' || inputs.poweroff) && 'yes' || 'no' }}" = yes ]; then
             echo "::group::shut down"
             RES=1280x800 POWEROFF=1 sh scripts/boot-test.sh dist/imagen-amd64.iso || echo "shutdown test failed"
             for p in dist/boot-test/*.ppm; do pnmtopng "$p" > "out/$(basename "$p" .ppm).png"; done
