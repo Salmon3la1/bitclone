@@ -105,6 +105,14 @@ jobs:
           path: dist
           pattern: imagen-*
           merge-multiple: true
+      # download-artifact has reported success on a truncated ISO before;
+      # never publish files that do not match the checksum made at build time.
+      - name: Verify downloaded files
+        run: |
+          cd dist
+          ls -l
+          test -s imagen-usb.exe
+          sha256sum -c imagen-amd64.iso.sha256
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
