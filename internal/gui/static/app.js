@@ -883,7 +883,7 @@ for (const [id, action, label] of [['#btn-reboot', 'reboot', 'Restart'], ['#btn-
     }
   };
 }
-api('system').then((s) => { S.sys = s; render(); }).catch(() => {});
+api('system').then((s) => { S.sys = s; $('#ram-note').classList.toggle('hidden', !s.inRAM); render(); }).catch(() => {});
 render();
 loadDisks();
 pollJob();

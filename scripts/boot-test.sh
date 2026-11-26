@@ -7,8 +7,9 @@
 # Needs: qemu-system-x86, xorriso, socat. Uses KVM when /dev/kvm exists.
 # RES=2560x1600 makes the virtual screen report that resolution as its
 # preferred mode (like a laptop panel); the default is 1280x800.
-# POWEROFF=1 then clicks Shut down (screen must be 1280x800) and saves a
-# screenshot every few seconds while the PC shuts down (shutdown-NN.ppm).
+# POWEROFF=1 then ejects the boot medium, clicks Shut down (screen must be
+# 1280x800) and saves a screenshot every few seconds while the PC shuts down
+# (shutdown-NN.ppm).
 set -eu
 ISO=$(realpath "$1")
 OUT=$(dirname "$ISO")/boot-test
@@ -27,7 +28,7 @@ grep -rhE "menuentry|^\s*linux" "$OUT/grub" 2>/dev/null | sort -u | sed 's/^/   
 
 xorriso -osirrox on -indev "$ISO" -extract /live/vmlinuz "$OUT/vmlinuz" -extract /live/initrd.img "$OUT/initrd.img" >/dev/null
 chmod -R u+w "$OUT"
-APPEND="boot=live components loglevel=3 hostname=imagen username=user noautologin nopersistence console=ttyS0,115200 systemd.journald.forward_to_console=1"
+APPEND="boot=live components loglevel=3 hostname=imagen username=user noautologin nopersistence toram console=ttyS0,115200 systemd.journald.forward_to_console=1"
 
 ACCEL=""
 [ -w /dev/kvm ] && ACCEL="-enable-kvm -cpu host" && echo "== using KVM"
@@ -72,6 +73,12 @@ echo "== kiosk / interface lines from the serial log"
 grep -aE "imagen|cage|firefox|interface" "$OUT/serial.log" | tail -n 40 || true
 
 if [ $ok = 1 ] && [ "${POWEROFF:-}" = 1 ]; then
+	# The system runs from RAM ("toram"): take the boot medium away first, like
+	# pulling the stick out, and the shutdown must still work.
+	echo "== removing the boot medium"
+	echo "eject -f ide1-cd0" | socat - "UNIX-CONNECT:$OUT/monitor.sock" || true
+	echo "info block" | socat - "UNIX-CONNECT:$OUT/monitor.sock" | grep -a "ide1-cd0" || true
+	sleep 5
 	echo "== clicking Shut down"
 	click 1186 33; sleep 3
 	echo "screendump $OUT/shutdown-00.ppm" | socat - "UNIX-CONNECT:$OUT/monitor.sock" >/dev/null || true

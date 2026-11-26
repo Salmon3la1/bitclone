@@ -112,8 +112,25 @@ func (s *server) system(w http.ResponseWriter, r *http.Request) {
 		"version": engine.ToolVersion,
 		"os":      runtime.GOOS,
 		"live":    err == nil,
+		"inRAM":   liveInRAM(),
 		"rawDisk": runtime.GOOS == "linux",
 	})
+}
+
+// liveInRAM reports whether the live system was copied into memory at boot
+// ("toram"): live-boot then moves a tmpfs copy onto /run/live/medium and lets
+// go of the stick, so it can be pulled out.
+func liveInRAM() bool {
+	b, err := os.ReadFile("/proc/self/mounts")
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if f := strings.Fields(line); len(f) >= 3 && f[1] == "/run/live/medium" {
+			return f[2] == "tmpfs"
+		}
+	}
+	return false
 }
 
 func (s *server) disks(w http.ResponseWriter, r *http.Request) {

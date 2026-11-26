@@ -9,7 +9,7 @@ on:
     inputs:
       tag:
         description: Release tag whose imagen-amd64.iso to boot
-        default: v0.3.2
+        default: v0.4.1
       resolutions:
         description: Space-separated screen resolutions
         default: 1280x800
@@ -28,7 +28,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p dist
-          gh release download "${{ inputs.tag || 'v0.3.2' }}" --repo "$GITHUB_REPOSITORY" --pattern imagen-amd64.iso --dir dist
+          gh release download "${{ inputs.tag || 'v0.4.1' }}" --repo "$GITHUB_REPOSITORY" --pattern imagen-amd64.iso --dir dist
       - name: Boot at each resolution
         run: |
           sudo apt-get update

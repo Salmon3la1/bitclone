@@ -71,6 +71,12 @@ Before erasing, the app checks again that the selected drive is the same one
 (model and size), still on USB, and not a system disk. It refuses if the ISO or
 the program itself is stored on that stick.
 
+**Only one USB port?** When the PC starts from the stick, IMAGen copies itself
+into memory (about 1 GB). Once the top bar says **Running from memory · USB
+stick can be removed**, pull the stick out and plug in the drive with your
+backups. On a PC with too little memory (under about 3 GB) it runs from the
+stick as before, and the note does not appear.
+
 **Convert a backup to .img**: the same program can turn an IMAGen backup
 (`.bci`) into a plain disk image (`.img`) that data-recovery tools such as
 Digger, and virtual machines, can open. Choose the backup, check where the
