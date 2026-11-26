@@ -236,12 +236,17 @@ type decResult struct {
 
 // streamChunks reads an image and decodes chunks in parallel, calling fn in
 // disk order. It returns after the end record and image checksum are verified.
-func streamChunks(ctx context.Context, path string, onMeta func(*image.Meta) error, fn func(off int64, raw []byte) error) (*image.Meta, error) {
+func streamChunks(ctx context.Context, p *Progress, path string, onMeta func(*image.Meta) error, fn func(off int64, raw []byte) error) (*image.Meta, error) {
 	sr, err := image.OpenSplit(path)
 	if err != nil {
 		return nil, err
 	}
 	defer sr.Close()
+	if p != nil {
+		sr.OnRetry = func(err error) {
+			p.Logf("cannot read the image (%v); waiting for the drive and trying again…", err)
+		}
+	}
 	ir, err := image.NewReader(sr)
 	if err != nil {
 		return nil, err
@@ -329,7 +334,7 @@ func ReadMeta(path string) (*image.Meta, error) {
 
 // Verify checks every chunk checksum and the whole-image SHA-256.
 func Verify(ctx context.Context, path string, p *Progress) (*image.Meta, error) {
-	meta, err := streamChunks(ctx, path, func(m *image.Meta) error {
+	meta, err := streamChunks(ctx, p, path, func(m *image.Meta) error {
 		p.Start("Verifying "+path, m.DataBytes)
 		return nil
 	}, func(off int64, raw []byte) error {
@@ -395,7 +400,7 @@ func Restore(ctx context.Context, o RestoreOptions, p *Progress) error {
 	}
 	p.Start(fmt.Sprintf("Restoring %s to %s", o.Image, o.Target), total)
 	var pos int64
-	_, err = streamChunks(ctx, o.Image, nil, func(off int64, raw []byte) error {
+	_, err = streamChunks(ctx, p, o.Image, nil, func(off int64, raw []byte) error {
 		if o.ZeroFill && off > pos {
 			if err := zeroRange(pos, off); err != nil {
 				return fmt.Errorf("writing target: %w", err)

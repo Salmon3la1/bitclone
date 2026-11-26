@@ -54,7 +54,7 @@ func Export(ctx context.Context, imagePath, out string, p *Progress) (*image.Met
 	}
 	p.Start(fmt.Sprintf("Converting %s", imagePath), meta.DataBytes)
 	zero := make([]byte, image.MaxChunk)
-	_, err = streamChunks(ctx, imagePath, nil, func(off int64, raw []byte) error {
+	_, err = streamChunks(ctx, p, imagePath, nil, func(off int64, raw []byte) error {
 		if !bytes.Equal(raw, zero[:len(raw)]) {
 			if _, err := f.WriteAt(raw, off); err != nil {
 				return fmt.Errorf("writing %s at byte %d: %w", out, off, err)

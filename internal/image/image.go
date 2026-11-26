@@ -293,13 +293,13 @@ func (r *Reader) Next() (*Chunk, error) {
 	}
 	var tag [4]byte
 	if err := r.read(tag[:]); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+		return nil, readErr(err)
 	}
 	switch string(tag[:]) {
 	case "CHNK":
 		var h [28]byte
 		if err := r.read(h[:]); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+			return nil, readErr(err)
 		}
 		c := &Chunk{
 			Off:    int64(binary.LittleEndian.Uint64(h[0:])),
@@ -313,7 +313,7 @@ func (r *Reader) Next() (*Chunk, error) {
 		}
 		c.Stored = make([]byte, sl)
 		if err := r.read(c.Stored); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+			return nil, readErr(err)
 		}
 		r.count++
 		r.raw += uint64(c.RawLen)
@@ -321,7 +321,7 @@ func (r *Reader) Next() (*Chunk, error) {
 	case "ENDS":
 		var e [16]byte
 		if err := r.read(e[:]); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorrupt, err)
+			return nil, readErr(err)
 		}
 		want := r.h.Sum(nil)
 		var got [32]byte
@@ -335,4 +335,13 @@ func (r *Reader) Next() (*Chunk, error) {
 		return nil, io.EOF
 	}
 	return nil, fmt.Errorf("%w: bad record tag", ErrCorrupt)
+}
+
+// readErr classifies a failed read: running out of data means the image is
+// truncated; anything else (a drive error) is passed on as it is.
+func readErr(err error) error {
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return fmt.Errorf("%w: %v", ErrCorrupt, err)
+	}
+	return err
 }

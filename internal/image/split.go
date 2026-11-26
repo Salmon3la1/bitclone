@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // PartName returns the file name of volume idx of a split image:
@@ -111,20 +114,45 @@ func (s *SplitWriter) Close() error {
 	return err
 }
 
-// SplitReader reads the volumes of an image in sequence.
+// ErrDriveLost is returned when the drive holding the image stopped
+// answering (unplugged, or a USB disconnect) and did not come back.
+var ErrDriveLost = errors.New("the drive holding the image stopped responding (was it disconnected?). The image itself is probably fine: reconnect the drive and try again")
+
+// How long SplitReader keeps trying to reopen an image file after a read
+// error, e.g. while a USB drive resets and Windows mounts it again.
+var (
+	RetryFor   = 60 * time.Second
+	RetryEvery = 3 * time.Second
+)
+
+// SplitReader reads the volumes of an image in sequence. If a read fails
+// (not end of file), it reopens the file at the same position and tries
+// again for up to RetryFor, so a drive that drops out for a moment does not
+// end a restore or conversion. OnRetry, if set, is told about each attempt.
 type SplitReader struct {
-	base string
-	idx  int
-	cur  *os.File
+	base    string
+	idx     int
+	cur     io.ReadSeekCloser
+	pos     int64 // position in the current volume
+	open    func(string) (io.ReadSeekCloser, error)
+	OnRetry func(err error)
+	closed  atomic.Bool
+	mu      sync.Mutex // guards cur between reopen and Close
 }
+
+func openFile(p string) (io.ReadSeekCloser, error) { return os.Open(p) }
 
 // OpenSplit opens an image (first volume path).
 func OpenSplit(base string) (*SplitReader, error) {
-	f, err := os.Open(base)
+	return openSplit(base, openFile)
+}
+
+func openSplit(base string, open func(string) (io.ReadSeekCloser, error)) (*SplitReader, error) {
+	f, err := open(base)
 	if err != nil {
 		return nil, err
 	}
-	return &SplitReader{base: base, cur: f}, nil
+	return &SplitReader{base: base, cur: f, open: open}, nil
 }
 
 func (s *SplitReader) Read(p []byte) (int, error) {
@@ -133,22 +161,74 @@ func (s *SplitReader) Read(p []byte) (int, error) {
 			return 0, io.EOF
 		}
 		n, err := s.cur.Read(p)
-		if n > 0 || (err != nil && !errors.Is(err, io.EOF)) {
-			return n, err
+		s.pos += int64(n)
+		if n > 0 {
+			return n, nil
+		}
+		if err != nil && !errors.Is(err, io.EOF) {
+			if rerr := s.reopen(err); rerr != nil {
+				return 0, rerr
+			}
+			continue
 		}
 		s.cur.Close()
 		s.idx++
-		f, err := os.Open(PartName(s.base, s.idx))
+		f, err := s.open(PartName(s.base, s.idx))
 		if err != nil {
 			s.cur = nil
 			return 0, io.EOF
 		}
-		s.cur = f
+		s.cur, s.pos = f, 0
+	}
+}
+
+// reopen closes the failed file and opens it again at the same position.
+func (s *SplitReader) reopen(cause error) error {
+	s.cur.Close()
+	if s.closed.Load() || errors.Is(cause, os.ErrClosed) {
+		s.cur = nil
+		return cause
+	}
+	name := PartName(s.base, s.idx)
+	deadline := time.Now().Add(RetryFor)
+	last := cause
+	for {
+		if s.OnRetry != nil {
+			s.OnRetry(last)
+		}
+		if f, err := s.open(name); err == nil {
+			if _, err := f.Seek(s.pos, io.SeekStart); err == nil {
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				if s.closed.Load() {
+					f.Close()
+					s.cur = nil
+					return os.ErrClosed
+				}
+				s.cur = f
+				return nil
+			}
+			f.Close()
+		} else {
+			last = err
+		}
+		if s.closed.Load() {
+			s.cur = nil
+			return os.ErrClosed
+		}
+		if !time.Now().Before(deadline) {
+			s.cur = nil
+			return fmt.Errorf("%w (%v)", ErrDriveLost, cause)
+		}
+		time.Sleep(RetryEvery)
 	}
 }
 
 // Close closes the current volume.
 func (s *SplitReader) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closed.Store(true)
 	if s.cur != nil {
 		return s.cur.Close()
 	}
